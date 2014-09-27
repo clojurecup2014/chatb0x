@@ -45,14 +45,7 @@
                           :password (creds/hash-bcrypt password)))))
 
 (defn get-friend-username [req] ; This doesn't smell right...
-  (:username (second (first (:authentications (:cemerick.friend/identity (:session req)))))))
-
-
-#_(defn get-friend-username [req] ; This doesn't smell right...
-    (:username (second (first (:authentications (:cemerick.friend/identity (:session req)))))))
-
-;;;destructure?
-;;;get-in?
+  (:username (current-authentication req)))
 
 (defn trim-email-address [email] (first (re-find #"(\S)+(?=@)" email)))
 

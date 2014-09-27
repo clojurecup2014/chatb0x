@@ -9,17 +9,27 @@
                                       :roles #{::admin}
                                       :sites #{"clojurecup.com"}
                                       :in-chat false}
+                  "agent1@example.com" {:username "agent1@example.com"
+                                                  :password (creds/hash-bcrypt "clojure")
+                                                  :roles #{::agent}
+                                                  :sites #{"example.com"}
+                                                  :in-chat false}
+                  "agent2@example.com" {:username "agent1@example.com"
+                                                  :password (creds/hash-bcrypt "clojure")
+                                                  :roles #{::agent}
+                                                  :sites #{"example.com"}
+                                                  :in-chat true}
                   "agent@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
                                                   :password (creds/hash-bcrypt "clojure")
                                                   :roles #{::agent}
                                                   :sites #{"clojurecup.com"}
                                                   :in-chat false}
-                  "agent1@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
+                  "agent1@chatb0x.clojurecup.com" {:username "agent1@chatb0x.clojurecupcom"
                                                   :password (creds/hash-bcrypt "clojure")
                                                   :roles #{::agent}
                                                   :sites #{"clojurecup.com"}
-                                                  :in-chat false}
-                  "agent2@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
+                                                  :in-chat true}
+                  "agent2@chatb0x.clojurecup.com" {:username "agent2@chatb0x.clojurecupcom"
                                                   :password (creds/hash-bcrypt "clojure")
                                                   :roles #{::agent}
                                                   :sites #{"clojurecup.com"}
@@ -77,11 +87,19 @@
   (get-in user [1 :roles]))
 
 (defn get-agents
+  "Returns all agents"
+  []
+  (into {} (filter #((get-roles %) ::agent) @users)))
+
+(defn get-assigned-agents
   "Returns map of agents assigned to site"
   [site]
-  (let [pred (fn [user] (and ((get-roles user) ::agent)
-                             ((get-sites user) site)))]
-    (into {} (filter pred @users))))
+  (into {} (filter #((get-sites %) site) (get-agents))))
+
+(defn get-unassigned-agents
+  "Returns map of agents not assigned to site"
+  [site]
+  (into {} (remove #((get-sites %) site) (get-agents))))
 
 (defn get-free-agents
   "Returns map of agents assigned to site and not in chat"

@@ -156,18 +156,7 @@
     (h req)))
 
 ;;; Compjure routes, site handler, ring server
-(defroutes admin-site
-  (GET "/" req (admin-home req))
-  (POST "/modify" req (admin-modify req)))
-
-(defroutes agent-site
-  (GET "/" req (handle-dump req)))
-
 (defroutes unsecured-site
-  (compojure/context "/admin" req
-    (friend/wrap-authorize admin-site #{:chatb0x.user/admin}))
-  (compojure/context "/agent" req
-    (friend/wrap-authorize agent-site #{:chatb0x.user/agent}))
   (resources "/")
   (GET "/" req (landing req))
   (GET "/about" req (landing req))
@@ -188,6 +177,8 @@
             (swap! users #(-> % (assoc (str/lower-case username) user))) ; (println "user is " user)        
             (friend/merge-authentication (resp/redirect "/welcome") user)) ; (println "register redirect req: " req)
           (resp/redirect "/reregister") ))  
+  (GET "/admin" req (friend/authorize #{:chatb0x.user/admin} (admin-home req)))
+  (GET "/agent" req (friend/authorize #{:chatb0x.user/agent} (agent-home req)))
   (not-found (landing {:uri  "PageNotFound"}))) 
 
 (def secured-site

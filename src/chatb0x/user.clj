@@ -7,12 +7,13 @@
 (def users (atom {"friend@gmail.com" {:username "friend@gmail.com"
                                       :password (creds/hash-bcrypt "clojure")
                                       :roles #{::admin}
-                                      :sites #{}}
+                                      :sites #{"clojurecup.com"}
+                                      :chat false}
                   "agent@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
                                                   :password (creds/hash-bcrypt "clojure")
                                                   :roles #{::agent}
-                                                  :sites #{"clojurecup.com"}}}))
-
+                                                  :sites #{"clojurecup.com"}
+                                                  :chat false}}))
 (defn check-registration
   "Validates the username and password"
   [username password]
@@ -25,7 +26,7 @@
   (let [lower-case-username (str/lower-case username)]
     (->  user-data (assoc :username lower-case-username
                           :password (creds/hash-bcrypt password)
-                          :role ::agent
+                          :roles ::agent
                           :sites #{}))))
 
 (defn modify-role

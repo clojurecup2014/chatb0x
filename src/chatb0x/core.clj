@@ -34,9 +34,17 @@
                                         ; wrap-reload used below in handler
 ;;; Navigation, Templating, and Snippets
 
-(def navigation-items  (array-map  "Home" "/" "About" "/about" "Contact" "/contact"))
+(defn navigation-items
+  "Returns an appropriate navbar for the session"
+  [req]
+  (apply array-map 
+    (concat ["Home" "/" "About" "/about" "Contact" "/contact"]
+      (if (friend/authorized? #{:chatb0x.user/admin} (friend/identity req)) ["Admin" "/admin"])
+      (if (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)) ["App" "/welcome"]))))
 
 (def navigation-items-user (array-map "Home" "/" "About" "/about" "Contact" "/contact" "App" "/welcome"))
+
+(def navigation-items-admin (array-map "Home" "/" "About" "/about" "Contact" "/contact" "App" "/welcome" "Console" "/admin"))
 
 (def navigation-items-invert (set/map-invert navigation-items))
 

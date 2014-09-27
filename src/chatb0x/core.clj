@@ -35,33 +35,6 @@
  
 ;;; Friend atom and accessor functions
 
-(def users (atom {"friend@gmail.com" {:username "friend@gmail.com" :password (creds/hash-bcrypt "clojure")}}))
-
-(defn check-registration [username password] ; strong password, non-blank username, doesn't already exist
-  (and (not (nil? (re-matches #"^(?=.*\d)(?=.*[a-zA-Z]).{7,50}$" password)))
-       (not (str/blank? username))
-       (not (contains? @users username))))
-
-(defn- create-user
-  [{:keys [username password] :as user-data}]
-  (let [lower-case-username (str/lower-case username)]
-    (->  user-data (assoc :username lower-case-username
-                          :password (creds/hash-bcrypt password)))))
-
-(defn get-friend-username [req] ; This doesn't smell right...
-  (:username (second (first (:authentications (:cemerick.friend/identity (:session req)))))))
-
-
-#_(defn get-friend-username [req] ; This doesn't smell right...
-    (:username (second (first (:authentications (:cemerick.friend/identity (:session req)))))))
-
-;;;destructure?
-;;;get-in?
-
-(defn trim-email-address [email] (first (re-find #"(\S)+(?=@)" email)))
-
-;;; Navigation, Templating, and Snippets
-
 (defn navigation-items
   "Returns an appropriate navbar for the session"
   [req]

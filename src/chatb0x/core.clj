@@ -62,13 +62,17 @@
 
 ;;; Navigation, Templating, and Snippets
 
-(def navigation-items  (array-map  "Home" "/" "About" "/about" "Contact" "/contact"))
+(defn navigation-items
+  "Returns an appropriate navbar for the session"
+  [req]
+  (apply array-map 
+    (concat ["Home" "/" "About" "/about" "Contact" "/contact"]
+      (if (friend/authorized? #{:chatb0x.user/admin} (friend/identity req)) ["Admin" "/admin"])
+      (if (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)) ["App" "/welcome"]))))
 
-(def navigation-items-user (array-map "Home" "/" "About" "/about" "Contact" "/contact" "App" "/welcome"))
+(defn navigation-items-invert [req] (set/map-invert (navigation-items req)))
 
-(def navigation-items-invert (set/map-invert navigation-items))
-
-(defn get-navigation-caption [req] (navigation-items-invert (req :uri)))
+(defn get-navigation-caption [req] ((navigation-items-invert req) (req :uri)))
 
 (html/defsnippet comment-description "public/chatb0x-box.html"
   [:div.detailBox]
@@ -86,21 +90,12 @@
 (html/defsnippet navbar (io/resource "public/landing.html")
   [:body :div.navbar]
   [req]  
-  [:ul [:li html/first-of-type]] (if (friend/identity req)
-                                        ;users see the app item in their menu
-                                   (html/clone-for [[caption uri] navigation-items-user]
-                                                   [:li] (if (= (req :uri) uri)
-                                                           (html/set-attr :class "active")
-                                                           identity)
-                                                   [:li :a] (html/content caption)
-                                                   [:li :a] (html/set-attr :href uri))
-                                        ;anonymous users do not see the app
-                                   (html/clone-for [[caption uri] navigation-items]
-                                                   [:li] (if (= (req :uri) uri)
-                                                           (html/set-attr :class "active")
-                                                           identity)
-                                                   [:li :a] (html/content caption)
-                                                   [:li :a] (html/set-attr :href uri)))
+  [:ul [:li html/first-of-type]] (html/clone-for [[caption uri] (navigation-items req)]
+                                                 [:li] (if (= (req :uri) uri)
+                                                         (html/set-attr :class "active")
+                                                         identity)
+                                                 [:li :a] (html/content caption)
+                                                 [:li :a] (html/set-attr :href uri))
   [:div.sign-in-form] (if (friend/identity req) (html/substitute (auth-profile req)) identity))
 
 (html/defsnippet non-app-content (io/resource "public/landing.html")
@@ -169,14 +164,6 @@
   [req]
   (handle-dump req))
 
-;;; Agent site
-(defn agent-home
-  "Agent interface.  Should allow agent to receive chat requests
-  and chat with visitor.
-  TODO: Allow multiple concurrent chats"
-  [req]
-  (handle-dump req))
-
 ;;; Logging/Debugging
 (defn log-request [req]
   (prn req)) 
@@ -195,9 +182,6 @@
   (GET "/chatb0x" req (chatb0x req))
   (GET "/chatb0x/ws" [] ws/chat-ws)
   (GET "/welcome" req
-                                        ;(println "welcome req:" req)
-                                        ;(println "(:user (req :params))" (:username (req :params)))
-                                        ;(println "user name extraction: " (:authentications (:cemerick.friend/identity (:session req))))
        (friend/authenticated  (welcome req)))
   (GET "/login" req (login req))
   (GET "/logout" req (friend/logout* (resp/redirect "/")))
@@ -209,7 +193,6 @@
             (friend/merge-authentication (resp/redirect "/welcome") user)) ; (println "register redirect req: " req)
           (resp/redirect "/reregister") ))  
   (GET "/admin" req (friend/authorize #{:chatb0x.user/admin} (admin-home req)))
-  (GET "/agent" req (friend/authorize #{:chatb0x.user/agent} (agent-home req)))
   (not-found (landing {:uri  "PageNotFound"}))) 
 
 (def secured-site

@@ -138,14 +138,6 @@
   [req]
   (handle-dump req))
 
-;;; Agent site
-(defn agent-home
-  "Agent interface.  Should allow agent to receive chat requests
-  and chat with visitor.
-  TODO: Allow multiple concurrent chats"
-  [req]
-  (handle-dump req))
-
 ;;; Logging/Debugging
 (defn log-request [req]
   (prn req)) 
@@ -175,7 +167,6 @@
             (friend/merge-authentication (resp/redirect "/welcome") user)) ; (println "register redirect req: " req)
           (resp/redirect "/reregister") ))  
   (GET "/admin" req (friend/authorize #{:chatb0x.user/admin} (admin-home req)))
-  (GET "/agent" req (friend/authorize #{:chatb0x.user/agent} (agent-home req)))
   (not-found (landing {:uri  "PageNotFound"}))) 
 
 (def secured-site

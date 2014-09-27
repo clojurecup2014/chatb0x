@@ -14,8 +14,8 @@
                       :handler cider/cider-nrepl-handler))
 
 (defn start-webserver []
-  (run-server secured-site {:port http-port
-                            :ip "127.0.0.1"}))
+  (run-server #'secured-site {:port http-port
+                              :ip "127.0.0.1"}))
 
 (defn -main [& args]
   (try

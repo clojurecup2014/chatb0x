@@ -90,7 +90,7 @@
 ;; ============================================================
 
 (defn get-chat-session []
-  ())
+  )
 
 ;; ============================================================
 
@@ -115,8 +115,10 @@
   {[:div.conversation-wrap] (add-class "pull-right")
    [:div.first-conversation] (substitute (chat-message-snippet my-message-vect))
    [:div.extra-chat] (substitute nil)
-   [:input#message-small] (listen :onKeyDown #(when (= (.-key %) "Enter")
-                                                (send-message "message-small")))})
+   [:input#message-small] (do->
+                           (set-attr :id "chatb0x-message")
+                           (listen :onKeyDown #(when (= (.-key %) "Enter")
+                                                 (send-message "chatb0x-message"))))})
 
 ;; ============================================================
 

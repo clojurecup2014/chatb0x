@@ -177,6 +177,7 @@
             (friend/merge-authentication (resp/redirect "/welcome") user)) ; (println "register redirect req: " req)
           (resp/redirect "/reregister") ))  
   (GET "/admin" req (friend/authorize #{:chatb0x.user/admin} (admin-home req)))
+  (resources "/js" {:root "react"})
   (not-found (landing {:uri  "PageNotFound"}))) 
 
 (def secured-site

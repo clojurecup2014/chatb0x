@@ -58,6 +58,9 @@
 (html/defsnippet agent-chatb0x "public/agent-chatb0x.html"
   [:div.container] [])
 
+(html/defsnippet admin-dash "public/admin-dashboard.html"
+  [:div.container] [])
+
 (html/defsnippet auth-profile (io/resource "public/welcome.html")
   [:body :div.user]
   [req]
@@ -134,6 +137,14 @@
   [:div.navbar] (html/after (html/html (agent-chatb0x)))
   [:body] (brepl-injection))
 
+;; Admin dashboard
+(html/deftemplate admin-dashboard "public/welcome.html"
+  [req]
+  [:body :div.navbar] (html/substitute (navbar req))
+  [:div.container :h1] (html/substitute nil)
+  [:div.navbar] (html/after (html/html (admin-dash)))
+  [:body] (brepl-injection))
+
 ;;; Admin site
 (defn admin-home
   "Admin control panel.  Should allow manipulating users
@@ -164,6 +175,7 @@
   (GET "/contact" req (landing req))
   (GET "/chatb0x" req (chatb0x req))
   (GET "/agent-chat" req (agent-chat req))
+  (GET "/admin-dashboard" req (admin-dashboard req))
   (GET "/chatb0x/ws" [] ws/chat-ws)
   (GET "/welcome" req
        (friend/authenticated  (welcome req)))

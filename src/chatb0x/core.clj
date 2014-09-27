@@ -28,7 +28,7 @@
 
 (reload/auto-reload *ns*) ; To automatically reload Enlive templates -
                                         ; wrap-reload used below in handler
-
+ 
 ;;; Friend atom and accessor functions
 
 (def users (atom {"friend@gmail.com" {:username "friend@gmail.com" :password (creds/hash-bcrypt "clojure")}}))
@@ -70,6 +70,9 @@
   [:div.detailBox]
   [desc]
   [:p.taskDescription] (html/content desc))
+
+(html/defsnippet chatb0x-box "public/chatb0x-box.html"
+  [:div.container] [] )
 
 (html/defsnippet auth-profile (io/resource "public/welcome.html")
   [:body :div.user]
@@ -144,8 +147,8 @@
   [req]
   [:body :div.navbar] (html/substitute (navbar req))
   [:div.container :h1] (html/substitute nil)
-  [:div.navbar] (html/after
-            (html/html (comment-description "Thing we are commenting on...")))
+;;  [:div.navbar] (html/after (html/html (comment-description "Thing we are commenting on...")))
+  [:div.navbar] (html/after (html/html (chatb0x-box)))
   [:body] (brepl-injection))
 
 
@@ -196,3 +199,4 @@
       (wrap-params)
       (wrap-session)
       (wrap-reload)))
+             

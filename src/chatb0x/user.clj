@@ -29,7 +29,7 @@
                           :sites #{}))))
 
 (defn modify-role
-  "Move the user to a different role, e.g. to promote to moderator"
+  "Move the user to a different role, e.g. to promote to admin"
   [user role]
   (assoc-in user [:role] role))
 

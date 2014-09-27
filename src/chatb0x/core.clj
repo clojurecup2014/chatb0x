@@ -164,9 +164,6 @@
   (GET "/chatb0x" req (chatb0x req))
   (GET "/chatb0x/ws" [] ws/chat-ws)
   (GET "/welcome" req
-                                        ;(println "welcome req:" req)
-                                        ;(println "(:user (req :params))" (:username (req :params)))
-                                        ;(println "user name extraction: " (:authentications (:cemerick.friend/identity (:session req))))
        (friend/authenticated  (welcome req)))
   (GET "/login" req (login req))
   (GET "/logout" req (friend/logout* (resp/redirect "/")))

@@ -8,12 +8,13 @@
                                       :password (creds/hash-bcrypt "clojure")
                                       :roles #{::admin}
                                       :sites #{"clojurecup.com"}
-                                      :chat false}
+                                      :in-chat false}
                   "agent@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
                                                   :password (creds/hash-bcrypt "clojure")
                                                   :roles #{::agent}
                                                   :sites #{"clojurecup.com"}
-                                                  :chat false}}))
+                                                  :in-chat false}}))
+
 (defn check-registration
   "Validates the username and password"
   [username password]
@@ -26,23 +27,23 @@
   (let [lower-case-username (str/lower-case username)]
     (->  user-data (assoc :username lower-case-username
                           :password (creds/hash-bcrypt password)
-                          :roles ::agent
+                          :roles #{::agent}
                           :sites #{}))))
 
 (defn modify-role
   "Move the user to a different role, e.g. to promote to admin"
   [user role]
-  (assoc-in user [:role] role))
+  (swap! users #(assoc-in % [user :role] role)))
 
 (defn add-site
   "Authorize the agent to receive calls for the site"
   [user site]
-  (update-in user [:sites] conj site))
+  (swap! users #(update-in % [user :sites] conj site)))
 
 (defn remove-site
   "Remove the agent's authorization to receive calls for the site"
   [user site]
-  (update-in user [:sites] disj site))
+  (swap! users #(update-in % [user :sites] disj site)))
 
 (defn get-friend-username [req]
   (:username (friend/current-authentication req)))

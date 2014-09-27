@@ -8,33 +8,13 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Structures
-(def ds-clients (atom {}))  ;; Key-channel; data-email,name,etc
-(def ds-agents (atom {}))   ;; Key-agent-channel; data-{vis1, vis2, etc}
-
-;; Functions
-;;(defn clients-get)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(comment  (defn send-message-to-clients [msg]
-            (let [clients (keys @clients)]
-              (when (seq clients)
-                (doseq [client clients]
-                  (send! client msg false))))))
+(def agent-addr (atom nil))
+(def vis-addr (atom nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Agent visitor handling
-(defn msg-init [client1 client2]
-  "Types: channel, channel"
-  (send! client1 client2)
-  (send! client2 client1))
-
-(defn msg-text [client-send data]
-  (let [client-receive (:receive-addr data)
-        text           (:text         data)])
-  (send! client-receive {:client-send client-send :text text}))
-
 (defn msg-close [client]
-  (send! client {:text "chat was terminated"}))
+  (send! client {:text "chat was terminated"} false))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; If user, then connect up agent. Both user and agent get init message.
@@ -44,32 +24,24 @@
   (with-channel req channel
     ;; CONNECT
     (println channel "connected")
-    (swap! ds-clients assoc channel {:name nil :email nil :room nil}) ;; Add to ds-clients
-    (let [agents (user/get_agents)]
-      (true? (channel agents)                                         ;; Is this user an agent?
-             (swap! ds-agents assoc channel {})))                     ;; Add to ds-agents. key-channel; value-{<visitors>}
+    (if (nil? @agent-addr)
+           (do (println "agent added")
+            (reset! agent-addr channel))
+           (do (println "vis added")
+            (reset! vis-addr channel)))
     ;; RECEIVE
     (on-receive channel (fn [data]
                           (println "on-receive channel:" channel " data:" data)
-                          (println "comment-ws comment-clients" @comment-clients)
-                          ;; Make a history later.. (swap! comment-clients assoc-in [channel] (read-string data))
-                          (send-message-to-clients data)))))
+                          (if (= @agent-addr channel)
+                            (do (println "Sending to vis") (send! @vis-addr (generate-string data) false)) ;; Send agent msg to visitor
+                            (do (println "Sending to agent") (send! @agent-addr (generate-string data) false))))) ;; Send visitor msg to agent
     ;; CLOSE
-    (on-close channel   (fn [status]
-                          (println channel "disconnected. status: " status)
-                          (swap! comment-clients dissoc channel)
-                          (msg-close )))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Commented code
-(comment  (defn send-msg [message-map room]
-            (let [client-filter-fn (fn [room] (fn [client] (if (= room (:room (val client))) true false)))
-                  clients-in-room (fn [room clients] (filter (client-filter-fn room) clients))
-                  channels-to-room (keys (clients-in-room room @comment-clients))
-                  message-string (generate-string message-map)]
-              (when (seq channels-to-room)
-                (println "sending message: " message-map "to" (count channels-to-room) "channels")
-                (doseq [channel channels-to-room]
-                  (send! channel message-string false))))))
-
-(comment  )
+    (on-close channel (fn [status]
+                        (println channel "disconnected. status: " status)
+                        (if (= @vis-addr channel)
+                          (do (println "visitor disconnecting")
+                              (reset! vis-addr nil) ;; Visitor disconnected
+                              (if @agent-addr (msg-close @agent-addr)))
+                          (do (println "agent disconnecting")
+                              (reset! agent-addr nil) ;; Agent disconnected
+                              (if @vis-addr (msg-close @vis-addr))))))))

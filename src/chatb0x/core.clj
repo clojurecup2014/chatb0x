@@ -175,12 +175,13 @@
                             :credential-fn #(creds/bcrypt-credential-fn @users %)
                             :workflows [(workflows/interactive-form)]})
                                         ; required Ring middlewares
-      (wrap-verbose) ; log the request map
+      ;;(wrap-verbose) ; log the request map
       (wrap-reload)
       (wrap-drop-www)
       (wrap-keyword-params)
       (wrap-nested-params)
       (wrap-params)
       (wrap-session)
-      (wrap-lint)))
+      ;;(wrap-lint)
+      ))
 

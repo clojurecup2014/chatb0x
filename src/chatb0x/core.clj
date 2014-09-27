@@ -161,9 +161,13 @@
   (POST "/modify" req (admin-modify req)))
 
 (defroutes agent-site
-  (GET "/" req (agent-home req)))
+  (GET "/" req (handle-dump req)))
 
 (defroutes unsecured-site
+  (compojure/context "/admin" req
+    (friend/wrap-authorize admin-site #{:chatb0x.user/admin}))
+  (compojure/context "/agent" req
+    (friend/wrap-authorize agent-site #{:chatb0x.user/agent}))
   (resources "/")
   (GET "/" req (landing req))
   (GET "/about" req (landing req))
@@ -184,10 +188,6 @@
             (swap! users #(-> % (assoc (str/lower-case username) user))) ; (println "user is " user)        
             (friend/merge-authentication (resp/redirect "/welcome") user)) ; (println "register redirect req: " req)
           (resp/redirect "/reregister") ))  
-  (compojure/context "/admin" req
-    (friend/wrap-authorize admin-site #{:chatb0x.user/admin}))
-  (compojure/context "/agent" req
-    (friend/wrap-authorize agent-site #{:chatb0x.user/agent}))
   (not-found (landing {:uri  "PageNotFound"}))) 
 
 (def secured-site
@@ -198,11 +198,10 @@
                             :workflows [(workflows/interactive-form)]})
                                         ; required Ring middlewares
       (wrap-verbose) ; log the request map
+      (wrap-reload)
       (wrap-drop-www)
       (wrap-keyword-params)
       (wrap-nested-params)
       (wrap-params)
       (wrap-session)
-      (wrap-reload)
-      (wrap-stacktrace)
       (wrap-lint)))

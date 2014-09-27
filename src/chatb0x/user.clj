@@ -13,6 +13,16 @@
                                                   :password (creds/hash-bcrypt "clojure")
                                                   :roles #{::agent}
                                                   :sites #{"clojurecup.com"}
+                                                  :in-chat false}
+                  "agent1@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
+                                                  :password (creds/hash-bcrypt "clojure")
+                                                  :roles #{::agent}
+                                                  :sites #{"clojurecup.com"}
+                                                  :in-chat false}
+                  "agent2@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
+                                                  :password (creds/hash-bcrypt "clojure")
+                                                  :roles #{::agent}
+                                                  :sites #{"clojurecup.com"}
                                                   :in-chat false}}))
 
 (defn check-registration
@@ -28,7 +38,8 @@
     (->  user-data (assoc :username lower-case-username
                           :password (creds/hash-bcrypt password)
                           :roles #{::agent}
-                          :sites #{}))))
+                          :sites #{}
+                          :in-chat false))))
 
 (defn modify-role
   "Move the user to a different role, e.g. to promote to admin"
@@ -44,6 +55,38 @@
   "Remove the agent's authorization to receive calls for the site"
   [user site]
   (swap! users #(update-in % [user :sites] disj site)))
+
+(defn enter-chat
+  "Marks the agent as being in chat"
+  [user]
+  (swap! users #(assoc-in % [user :in-chat] true)))
+
+(defn exit-chat
+  "Marks the agent as being out of chat"
+  [user]
+  (swap! users #(assoc-in % [user :in-chat] false)))
+
+(defn get-sites
+  "Returns the set of sites a user is assigned to"
+  [user]
+  (get-in user [1 :sites]))
+
+(defn get-roles
+  "Returns the set of roles a user has"
+  [user]
+  (get-in user [1 :roles]))
+
+(defn get-agents
+  "Returns map of agents assigned to site"
+  [site]
+  (let [pred (fn [user] (and ((get-roles user) ::agent)
+                             ((get-sites user) site)))]
+    (into {} (filter pred @users))))
+
+(defn get-free-agents
+  "Returns map of agents assigned to site and not in chat"
+  [site]
+  (into {} (remove #(get-in % [1 :in-chat]) (get-agents site))))
 
 (defn get-friend-username [req]
   (:username (friend/current-authentication req)))

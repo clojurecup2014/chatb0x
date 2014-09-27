@@ -35,7 +35,7 @@
                                       :password (creds/hash-bcrypt "clojure")
                                       :role :admin}
                   "agent@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
-                                                  :password (cred/hash-bcrypt "clojure")
+                                                  :password (creds/hash-bcrypt "clojure")
                                                   :role :agent
                                                   :sites ["clojurecup.com"]}}))
 

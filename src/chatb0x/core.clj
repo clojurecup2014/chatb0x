@@ -7,7 +7,7 @@
             [net.cgrand.reload :as reload]
             [compojure.handler :as handler]
             [compojure.route :refer (resources not-found)]
-            [compojure.core :refer (GET POST defroutes)]
+            [compojure.core :as compojure :refer (GET POST defroutes)]
             [ring.util.response :as resp]
             [ring.middleware.params :refer (wrap-params)]
             [ring.middleware.nested-params :refer (wrap-nested-params)]
@@ -15,6 +15,9 @@
             [ring.middleware.session :refer (wrap-session)]
             [ring.middleware.session.store :refer (read-session)]
             [ring.middleware.reload :refer (wrap-reload)]
+            [ring.middleware.lint :refer (wrap-lint)]
+            [ring.middleware.stacktrace :refer (wrap-stacktrace)]
+            [ring.handler.dump :refer (handle-dump)]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.set :as set]
@@ -122,9 +125,30 @@
   [:body] (brepl-injection))
 
 
+;;; Admin site
+(defn admin-home
+  "Admin control panel.  Should allow manipulating users
+  to make them agents, and to assign them sites."
+  [req]
+  (handle-dump req))
+
+(defn admin-modify
+  "Change a user's role.
+  TODO: Handle changing user's sites"
+  [req]
+  (handle-dump req))
+
+;;; Agent site
+(defn agent-home
+  "Agent interface.  Should allow agent to receive chat requests
+  and chat with visitor.
+  TODO: Allow multiple concurrent chats"
+  [req]
+  (handle-dump req))
+
 ;;; Logging/Debugging
 (defn log-request [req]
-  (println ">>>>" req)) 
+  (prn req)) 
 
 (defn wrap-verbose [h]
   (fn [req]
@@ -132,6 +156,13 @@
     (h req)))
 
 ;;; Compjure routes, site handler, ring server
+(defroutes admin-site
+  (GET "/" req (admin-home req))
+  (POST "/modify" req (admin-modify req)))
+
+(defroutes agent-site
+  (GET "/" req (agent-home req)))
+
 (defroutes unsecured-site
   (resources "/")
   (GET "/" req (landing req))
@@ -153,6 +184,10 @@
             (swap! users #(-> % (assoc (str/lower-case username) user))) ; (println "user is " user)        
             (friend/merge-authentication (resp/redirect "/welcome") user)) ; (println "register redirect req: " req)
           (resp/redirect "/reregister") ))  
+  (compojure/context "/admin" req
+    (friend/wrap-authorize admin-site #{:chatb0x.user/admin}))
+  (compojure/context "/agent" req
+    (friend/wrap-authorize agent-site #{:chatb0x.user/agent}))
   (not-found (landing {:uri  "PageNotFound"}))) 
 
 (def secured-site
@@ -162,10 +197,12 @@
                             :credential-fn #(creds/bcrypt-credential-fn @users %)
                             :workflows [(workflows/interactive-form)]})
                                         ; required Ring middlewares
-      ;;(wrap-verbose) ; log the request map
+      (wrap-verbose) ; log the request map
       (wrap-drop-www)
       (wrap-keyword-params)
       (wrap-nested-params)
       (wrap-params)
       (wrap-session)
-      (wrap-reload)))
+      (wrap-reload)
+      (wrap-stacktrace)
+      (wrap-lint)))

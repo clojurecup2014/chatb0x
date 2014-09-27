@@ -31,7 +31,13 @@
 
 ;;; Friend atom and accessor functions
 
-(def users (atom {"friend@gmail.com" {:username "friend@gmail.com" :password (creds/hash-bcrypt "clojure")}}))
+(def users (atom {"friend@gmail.com" {:username "friend@gmail.com"
+                                      :password (creds/hash-bcrypt "clojure")
+                                      :role :admin}
+                  "agent@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
+                                                  :password (cred/hash-bcrypt "clojure")
+                                                  :role :agent
+                                                  :sites ["clojurecup.com"]}}))
 
 (defn check-registration [username password] ; strong password, non-blank username, doesn't already exist
   (and (not (nil? (re-matches #"^(?=.*\d)(?=.*[a-zA-Z]).{7,50}$" password)))
@@ -45,7 +51,7 @@
                           :password (creds/hash-bcrypt password)))))
 
 (defn get-friend-username [req] ; This doesn't smell right...
-  (:username (current-authentication req)))
+  (:username (friend/current-authentication req)))
 
 (defn trim-email-address [email] (first (re-find #"(\S)+(?=@)" email)))
 

@@ -55,6 +55,9 @@
 (html/defsnippet chatb0x-box "public/chatb0x-box.html"
   [:div.container] [] )
 
+(html/defsnippet agent-chatb0x "public/agent-chatb0x.html"
+  [:div.container] [])
+
 (html/defsnippet auth-profile (io/resource "public/welcome.html")
   [:body :div.user]
   [req]
@@ -123,6 +126,13 @@
   [:div.navbar] (html/after (html/html (chatb0x-box)))
   [:body] (brepl-injection))
 
+;; Agent chat page
+(html/deftemplate agent-chat "public/welcome.html"
+  [req]
+  [:body :div.navbar] (html/substitute (navbar req))
+  [:div.container :h1] (html/substitute nil)
+  [:div.navbar] (html/after (html/html (agent-chatb0x)))
+  [:body] (brepl-injection))
 
 ;;; Admin site
 (defn admin-home
@@ -153,6 +163,7 @@
   (GET "/about" req (landing req))
   (GET "/contact" req (landing req))
   (GET "/chatb0x" req (chatb0x req))
+  (GET "/agent-chat" req (agent-chat req))
   (GET "/chatb0x/ws" [] ws/chat-ws)
   (GET "/welcome" req
        (friend/authenticated  (welcome req)))

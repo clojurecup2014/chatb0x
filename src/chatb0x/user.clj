@@ -25,7 +25,7 @@
   (let [lower-case-username (str/lower-case username)]
     (->  user-data (assoc :username lower-case-username
                           :password (creds/hash-bcrypt password)
-                          :role ::visitor
+                          :role ::agent
                           :sites #{}))))
 
 (defn modify-role

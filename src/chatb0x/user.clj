@@ -6,11 +6,11 @@
 
 (def users (atom {"friend@gmail.com" {:username "friend@gmail.com"
                                       :password (creds/hash-bcrypt "clojure")
-                                      :role ::admin
+                                      :roles #{::admin}
                                       :sites #{}}
                   "agent@chatb0x.clojurecup.com" {:username "agent@chatb0x.clojurecupcom"
                                                   :password (creds/hash-bcrypt "clojure")
-                                                  :role ::agent
+                                                  :roles #{::agent}
                                                   :sites #{"clojurecup.com"}}}))
 
 (defn check-registration

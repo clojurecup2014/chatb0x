@@ -52,6 +52,11 @@
     (->  user-data (assoc :username lower-case-username
                           :password (creds/hash-bcrypt password)))))
 
+(defn modify-role
+  "Move the user to a different role, e.g. to promote to moderator"
+  [user role]
+  (assoc-in [:role] role))
+
 (defn get-friend-username [req] ; This doesn't smell right...
   (:username (friend/current-authentication req)))
 

@@ -39,7 +39,9 @@
                                                   :role :agent
                                                   :sites ["clojurecup.com"]}}))
 
-(defn check-registration [username password] ; strong password, non-blank username, doesn't already exist
+(defn check-registration
+  "Validates the username and password"
+  [username password]
   (and (not (nil? (re-matches #"^(?=.*\d)(?=.*[a-zA-Z]).{7,50}$" password)))
        (not (str/blank? username))
        (not (contains? @users username))))

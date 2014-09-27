@@ -42,13 +42,9 @@
       (if (friend/authorized? #{:chatb0x.user/admin} (friend/identity req)) ["Admin" "/admin"])
       (if (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)) ["App" "/welcome"]))))
 
-(def navigation-items-user (array-map "Home" "/" "About" "/about" "Contact" "/contact" "App" "/welcome"))
+(defn navigation-items-invert [req] (set/map-invert (navigation-items req)))
 
-(def navigation-items-admin (array-map "Home" "/" "About" "/about" "Contact" "/contact" "App" "/welcome" "Console" "/admin"))
-
-(def navigation-items-invert (set/map-invert navigation-items))
-
-(defn get-navigation-caption [req] (navigation-items-invert (req :uri)))
+(defn get-navigation-caption [req] ((navigation-items-invert req) (req :uri)))
 
 (html/defsnippet comment-description "public/chatb0x-box.html"
   [:div.detailBox]
@@ -63,21 +59,12 @@
 (html/defsnippet navbar (io/resource "public/landing.html")
   [:body :div.navbar]
   [req]  
-  [:ul [:li html/first-of-type]] (if (friend/identity req)
-                                        ;users see the app item in their menu
-                                   (html/clone-for [[caption uri] navigation-items-user]
-                                                   [:li] (if (= (req :uri) uri)
-                                                           (html/set-attr :class "active")
-                                                           identity)
-                                                   [:li :a] (html/content caption)
-                                                   [:li :a] (html/set-attr :href uri))
-                                        ;anonymous users do not see the app
-                                   (html/clone-for [[caption uri] navigation-items]
-                                                   [:li] (if (= (req :uri) uri)
-                                                           (html/set-attr :class "active")
-                                                           identity)
-                                                   [:li :a] (html/content caption)
-                                                   [:li :a] (html/set-attr :href uri)))
+  [:ul [:li html/first-of-type]] (html/clone-for [[caption uri] (navigation-items req)]
+                                                 [:li] (if (= (req :uri) uri)
+                                                         (html/set-attr :class "active")
+                                                         identity)
+                                                 [:li :a] (html/content caption)
+                                                 [:li :a] (html/set-attr :href uri))
   [:div.sign-in-form] (if (friend/identity req) (html/substitute (auth-profile req)) identity))
 
 (html/defsnippet non-app-content (io/resource "public/landing.html")

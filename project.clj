@@ -49,4 +49,4 @@
  
   :figwheel {:http-server-root "public"
              :server-port 3449}
-  :uberjar-name "comments.jar")
+  :uberjar-name "chatb0x.jar")

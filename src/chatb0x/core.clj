@@ -56,7 +56,8 @@
   [:div.container] [] )
 
 (html/defsnippet agent-chatb0x "public/agent-chatb0x.html"
-  [:div.container] [])
+  [:div.container] []
+  [:div#agent-message-box] (html/content nil))
 
 (html/defsnippet auth-profile (io/resource "public/welcome.html")
   [:body :div.user]
@@ -79,9 +80,9 @@
   [req]
   [:#content] (case (get-navigation-caption req) 
                 "Home" (html/set-attr :id "content") 
-                "About" (html/do-> (html/content "See what we're all about")
+                "About" (html/do-> (html/content "chatb\u2205x is a simple chat plugin to help website owners easily engage with their visitors.")
                                    (html/wrap :h2))
-                "Contact" (html/do-> (html/content "Learn how to make contact")
+                "Contact" (html/do-> (html/content "Please reach out to us over the chatb\u2205x chat client for more information.")
                                      (html/wrap :h2))
                 (html/do-> (html/content  "Best check yo self, page not found!")
                            (html/wrap :h2 {:class "alert alert-warning" :style "text-align: center;"}))))
@@ -122,7 +123,6 @@
   [req]
   [:body :div.navbar] (html/substitute (navbar req))
   [:div.container :h1] (html/substitute nil)
-;;  [:div.navbar] (html/after (html/html (comment-description "Thing we are commenting on...")))
   [:div.navbar] (html/after (html/html (chatb0x-box)))
   [:body] (brepl-injection))
 

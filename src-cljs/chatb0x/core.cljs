@@ -66,7 +66,6 @@
 
 (set! (.-onopen socket)
       (fn [event]
-;;        (.send socket {:new-path path :new-host host})
         (println "WebSocket connected. Destination: " ws-url)))
 
 ;; The keys are all ints, so sort them such that :10 > :2
@@ -78,9 +77,8 @@
       (fn [event]
         (let [data (cljs.reader/read-string (.-data event))]
           (println "socket.onmessage data:" data)
-          (try
-            (swap! app-state #(update-in % [:msg-vect] conj data))
-            (catch Exception e (str "onmessage exception: " e " data: " data)))
+          
+          (swap! app-state #(update-in % [:msg-vect] conj data))
           (println "app-state:" @app-state)
           )))
 
@@ -147,12 +145,29 @@
                                    (add-class "pull-left")
                                    (add-class "col-lg-12")
                                    (remove-class "col-lg-8"))
-   [:div.first-agent-conversation] (substitute (map chat-message-snippet (:msg-vect data)))
+   [:div.first-agent-conversation] (substitute (map chat-message-snippet 
+                                                    (filter #(:message %)
+                                                            (:msg-vect data))))
    [:div.extra-chat] (substitute nil)
    [:input#message-big] (do->
                          (set-attr :id "agent-message")
                          (listen :onKeyDown #(when (= (.-key %) "Enter")
                                                (send-message "agent-message"))))})
+
+(defsnippet visitor-list-snippet "public/agent-chatb0x.html"
+  [:a.first]
+  [channel]
+  {[:a.first] (content "Hello!")
+   })
+
+(defsnippet list-snippet "public/agent-chatb0x.html"
+  [:div#visitor-list]
+  [data]
+  {[:a.first] (substitute (map visitor-list-snippet 
+                                      (filter #(:ch-visitor %)
+                                              (:msg-vect data))))})
+
+
 
 ;; ============================================================
 
@@ -172,7 +187,18 @@
       (get-chat-session))
     om/IRender
     (render [_]
-      (om/build (init agent-chat-snippet) data))))
+      (do
+       (om/build (init agent-chat-snippet) data)))))
+
+(defn list-view [data owner]
+  (reify
+    om/IWillMount
+    (will-mount [_]
+      (get-chat-session))
+    om/IRender
+    (render [_]
+      (do
+       (om/build (init list-snippet) data)))))
 
 (defn page-view [data owner]
   (reify
@@ -183,10 +209,20 @@
         (om/build chatb0x-view data)
         (om/build agent-view data)))))
 
+(defn page-view2 [data owner]
+  (reify
+    om/IRender
+    (render [_]
+      ;;FIXME
+      (om/build list-view data))))
+
 (if (not= path "/agent-chat")
   (om/root page-view app-state 
            {:target (.appendChild 
                      (.-body js/document) 
                      (.createElement js/document "div"))})
-  (om/root page-view app-state
-           {:target (.getElementById js/document "agent-message-box")}))
+  (do
+    (om/root page-view app-state
+             {:target (.getElementById js/document "agent-message-box")})
+    (om/root page-view2 app-state
+             {:target (.getElementById js/document "visitor-list")}))) 

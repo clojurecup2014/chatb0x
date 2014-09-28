@@ -59,6 +59,10 @@
   [:div.container] []
   [:div#agent-message-box] (html/content nil))
 
+(html/defsnippet visitors-list "public/agent-chatb0x.html"
+  [:div#visitor-list] []
+  [:div#visitor-list] (html/content nil))
+
 (html/defsnippet admin-dash "public/admin-dashboard.html"
   [:div.container] [])
 
@@ -138,6 +142,7 @@
   [:body :div.navbar] (html/substitute (navbar req))
   [:div.container :h1] (html/substitute nil)
   [:div.navbar] (html/after (html/html (agent-chatb0x)))
+;;  [:div#visitor-list] (html/substitute (visitors-list))
   [:body] (brepl-injection))
 
 ;; Admin dashboard

@@ -34,20 +34,11 @@
     (on-receive channel (fn [data]
                           (prn "on-receive channel:" channel " data:" data)
                           (let [data (edn/read-string data)]
-                            (if (= @agent-addr channel)
-                              (do
-                                (prn "Sending to channel:" channel " data:" data)
-                                (send! @vis-addr (pr-str data) false)) ;; Send agent msg to visitor
-                              (do
-                                (prn "Sending to channel::" channel " data:" data)
-                                (send! @agent-addr (pr-str data) false)))))) ;; Send visitor msg to agent
+                            (send! @vis-addr (pr-str data) false)
+                            (send! @agent-addr (pr-str data) false))))
     ;; CLOSE
     (on-close channel (fn [status]
-                        (prn channel "disconnected. status: " status)
-                        (if (= @vis-addr channel)
-                          (do (prn "visitor disconnecting")
-                              (reset! vis-addr nil) ;; Visitor disconnected
-                              (if @agent-addr (msg-close @agent-addr)))
-                          (do (prn "agent disconnecting")
-                              (reset! agent-addr nil) ;; Agent disconnected
-                              (if @vis-addr (msg-close @vis-addr))))))))
+                        (reset! vis-addr nil) ;; Visitor disconnected
+                        (msg-close @agent-addr)
+                        (reset! agent-addr nil) ;; Agent disconnected
+                        (msg-close @vis-addr)))))

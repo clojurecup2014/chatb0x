@@ -174,9 +174,9 @@
   (GET "/about" req (landing req))
   (GET "/contact" req (landing req))
   (GET "/chatb0x" req (chatb0x req))
-  (GET "/agent-chat" req (agent-chat req))
+  (GET "/agent-chat" req (chatb0x req))
   (GET "/admin-dashboard" req (admin-dashboard req))
-  (GET "/chatb0x/ws" [] ws/chat-ws)
+;;  (GET "/chatb0x/ws" [] ws/chat-ws)
   (GET "/welcome" req
        (friend/authenticated  (welcome req)))
   (GET "/login" req (login req))

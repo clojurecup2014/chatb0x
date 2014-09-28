@@ -35,7 +35,7 @@
 
 (def host (.-host js/location))
 
-(def ws-url (str "ws://" host "/ws/chat"))
+(def ws-url (str "ws://" host "/chatb0x/ws"))
 (def socket (js/WebSocket. ws-url))
 
 (defn send-message [id] 

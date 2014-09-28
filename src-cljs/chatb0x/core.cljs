@@ -67,20 +67,12 @@
 ;; FIXME
 (set! (.-onmessage socket)
       (fn [event]
-<<<<<<< HEAD
         (let [data (cljs.reader/read-string (.-data event))]
           (prn "socket.onmessage data:" data)
           (swap! app-state #(update-in % [:msg-vect] conj data))
           (prn "app-state:" @app-state)
           )))
-=======
-        (let [json-data (.parse js/JSON (.-data event))
-              data (js->clj json-data :keywordize-keys true)
-              sorted-message-map (into (sorted-map-by msg-comparator)
-                                       (conj (:msg-vect @app-state) data))]
-          (println "socket.onmessage data:" data)
-          (swap! app-state assoc :msg-vect sorted-message-map))))
->>>>>>> 1a36ca9b73040e294d4e268465dd328e45266628
+
 
 (defn gravatar [email]
   (if email

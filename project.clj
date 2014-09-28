@@ -13,6 +13,7 @@
                  [ring "1.3.1"]
                  [enlive "1.1.5"]
                  [com.cemerick/friend "0.2.0"]
+                 [digest "1.4.4"]
 
                  ;; clojurescript
                  [org.clojure/clojurescript "0.0-2280"]

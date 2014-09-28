@@ -1,7 +1,18 @@
 (ns chatb0x.websockets
   (:require [org.httpkit.server :refer [with-channel on-close on-receive send!]]
             [chatb0x.user :refer :all]
-            [cheshire.core :refer [generate-string]]))
+            [cheshire.core :refer [generate-string]]
+            [digest :refer [md5]]
+            [clojure.string :as str]))
+
+(defn calc-gravatar [email]
+  (if email
+    (str "http://www.gravatar.com/avatar/"
+         (-> email
+             (str/trim)
+             (str/lower-case)
+             (md5)))
+    (str "http://www.gravatar.com/avatar/")))
 
 ;; BRADS FUNCTIONS FOR DATA
 ;; get-assigned-agents, get-unassigned-agents, get-free-agents 
@@ -31,14 +42,18 @@
       (:visitor data)))               
 
 (defn ds-agents-add-visitor [agent visitor]
-  (update-in @ds-agents [agent] #(assoc % visitor visitor)))
+  (println agent visitor)
+  (swap! ds-agents assoc-in [agent visitor] visitor)
+  ;;(update-in @ds-agents [agent] #(assoc % visitor visitor))
+  )
+
 (defn ds-visitors-add [visitor agent]
   (swap! ds-visitors assoc visitor agent))
 
 (defn get-text [data] (:message data))
 
 (defn remove-agent [client]
-  (let [visitors (get @ds-agents client)]      ;; COULD BE BAD!!!! is it dead when removed from ds in next lines of code?
+  (let [visitors (get @ds-agents client)]
     (swap! ds-clients dissoc client)       ;; Cleanup: remove agent from ds-clients
     (doseq [visitor visitors]  
       (swap! ds-clients dissoc visitor)    ;; Cleanup: remove visitors from ds-clients
@@ -47,7 +62,7 @@
 
 (defn remove-visitor [client]
   (swap! ds-clients dissoc client)       ;; Cleanup: remove agent from ds-clients
-  (update-in @ds-agents [(get-agent client)] #(dissoc % client))
+  (swap! ds-agents update-in [(get-agent client)] dissoc client)
   (swap! ds-visitors dissoc client))    ;; Cleanup: remove agent from ds-visitors
 
 (defn close-cleanup-ds [client]
@@ -61,8 +76,10 @@
 ;; Agent visitor handling
 (defn send-msg2 [client1 client2 msg]
   (do (if client1
+        (println "Sending client1: " msg)
         (send! client1 msg false))
       (if client2
+        (println "Sending client2" msg)
         (send! client2 msg false))))
 
 (defn msg-init [client1 client2]
@@ -74,8 +91,8 @@
   (let [agent   (get-agent   sender)
         visitor (get-visitor data)
         text    (get-text    data)]
-    (send-msg2 agent visitor (generate-string ;; TODO FIX :agent :visitor !!!
-                              {:agent "agent-baz" :visitor "visitor-bar" :message text}))))
+    (println "In msg-text")
+    (send-msg2 agent visitor (generate-string {:ch-visitor (:ch-visitor data) :message text}))))
 
 (defn msg-close [client]
   (let [agent   (get-agent   client)
@@ -99,20 +116,20 @@
     (println req)
     (if (contains? (get-in req [:session :cemerick.friend/identity :authentications nil :roles]) :chatb0x.user/agent)
       (do (println "Agent connected: " channel) ;; Agent
-          (swap! ds-clients assoc channel {:name nil :email nil :room nil}) ;; Add to ds-clients
+          (swap! ds-clients assoc channel {:name nil :gravatar-url (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username])) :room nil}) ;; Add to ds-clients
           (swap! ds-agents assoc channel {})) 
       (let [ch-agent   (get-free-agent)            ;; Visitor
             ch-visitor channel
-            vis-email   (get-in req [:session :cemerick.friend/identity :authentications nil :username])
-            agent-email "garbage-for-now@hotmail.com"]
+            gravatar-url   (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username]))]
         (if (= ch-agent nil)
           (println "ERROR EVENTUALLY!!! no agents on, ignoring visitor!")
           (do (println "Visitor connected: " channel)
-              (swap! ds-clients assoc ch-visitor {:name nil :email vis-email :room nil}) ;; Add to ds-clients
+              (swap! ds-clients assoc ch-visitor {:name nil :gravatar-url gravatar-url :room nil}) ;; Add to ds-clients
               (ds-agents-add-visitor ch-agent   ch-visitor)
               (ds-visitors-add       ch-visitor ch-agent)
-              (send! ch-agent (generate-string {:visitor (str ch-visitor) :vis-email vis-email}) false)
-              (send! ch-visitor (generate-string {:agent-email agent-email}) false)))))
+              (send! ch-agent (generate-string {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)
+              ;; (send! ch-visitor (generate-string {:gravatar-url gravatar-url}) false)
+              ))))
     ;; RECEIVE
     (on-receive channel (fn [data]
                           (println "on-receive channel:" channel " data:" data)

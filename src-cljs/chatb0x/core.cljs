@@ -48,7 +48,7 @@
 
 (defn send-message [id] 
   (let [message (.-value (by-id id))]
-    (.send socket {:msg message :host host :path path})
+    (.send socket {:message message :host host :path path})
     (set! (.-value (by-id id)) nil)
     (println "chatb0x sent message:" message)))
 
@@ -66,6 +66,7 @@
 
 (set! (.-onopen socket)
       (fn [event]
+        (.send socket {:new-path path :new-host host})
         (println "WebSocket connected. Destination: " ws-url)))
 
 ;; The keys are all ints, so sort them such that :10 > :2

@@ -60,8 +60,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Agent visitor handling
 (defn send-msg2 [client1 client2 msg]
-  (do (send! client1 msg false)
-      (send! client2 msg false)))
+  (do (if client1
+        (send! client1 msg false))
+      (if client2
+        (send! client2 msg false))))
 
 (defn msg-init [client1 client2]
   "Send address of opposite end to both clients"
@@ -94,16 +96,23 @@
 (defn chat-ws [req]
   (with-channel req channel
     ;; CONNECT
-    (swap! ds-clients assoc channel {:name nil :email nil :room nil}) ;; Add to ds-clients
-    (if (= ((:new-path req) "/agent-chat"))
+    (println req)
+    (if (contains? (get-in req [:session :cemerick.friend/identity :authentications nil :roles]) :chatb0x.user/agent)
       (do (println "Agent connected: " channel) ;; Agent
+          (swap! ds-clients assoc channel {:name nil :email nil :room nil}) ;; Add to ds-clients
           (swap! ds-agents assoc channel {})) 
-      (let [agent   (get-free-agent)            ;; Visitor
-            visitor channel]
-        (println "Visitor connected: " channel)
-        (ds-agents-add-visitor agent   visitor)
-        (ds-visitors-add       visitor agent)
-        (send! agent (generate-string {:visitor visitor}) false)))
+      (let [ch-agent   (get-free-agent)            ;; Visitor
+            ch-visitor channel
+            vis-email   (get-in req [:session :cemerick.friend/identity :authentications nil :username])
+            agent-email "garbage-for-now@hotmail.com"]
+        (if (= ch-agent nil)
+          (println "ERROR EVENTUALLY!!! no agents on, ignoring visitor!")
+          (do (println "Visitor connected: " channel)
+              (swap! ds-clients assoc ch-visitor {:name nil :email vis-email :room nil}) ;; Add to ds-clients
+              (ds-agents-add-visitor ch-agent   ch-visitor)
+              (ds-visitors-add       ch-visitor ch-agent)
+              (send! ch-agent (generate-string {:visitor (str ch-visitor) :vis-email vis-email}) false)
+              (send! ch-visitor (generate-string {:agent-email agent-email}) false)))))
     ;; RECEIVE
     (on-receive channel (fn [data]
                           (println "on-receive channel:" channel " data:" data)

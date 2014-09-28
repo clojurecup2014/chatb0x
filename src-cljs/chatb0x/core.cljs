@@ -77,9 +77,11 @@
 (set! (.-onmessage socket)
       (fn [event]
         (let [data (cljs.reader/read-string (.-data event))]
-          (prn "socket.onmessage data:" data)
-          (swap! app-state #(update-in % [:msg-vect] conj data))
-          (prn "app-state:" @app-state)
+          (println "socket.onmessage data:" data)
+          (try
+            (swap! app-state #(update-in % [:msg-vect] conj data))
+            (catch Exception e (str "onmessage exception: " e " data: " data)))
+          (println "app-state:" @app-state)
           )))
 
 (defn gravatar [email]

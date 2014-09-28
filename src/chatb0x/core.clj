@@ -40,8 +40,8 @@
   [req]
   (apply array-map 
     (concat ["Home" "/" "About" "/about" "Contact" "/contact"]
-      (if (friend/authorized? #{:chatb0x.user/admin} (friend/identity req)) ["Admin" "/admin"])
-      (if (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)) ["App" "/welcome"]))))
+      (if (friend/authorized? #{:chatb0x.user/admin} (friend/identity req)) ["Admin Dashboard" "/admin-dashboard"])
+      (if (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)) ["Chat" "/agent-chat"]))))
 
 (defn navigation-items-invert [req] (set/map-invert (navigation-items req)))
 
@@ -145,19 +145,6 @@
   [:div.navbar] (html/after (html/html (admin-dash)))
   [:body] (brepl-injection))
 
-;;; Admin site
-(defn admin-home
-  "Admin control panel.  Should allow manipulating users
-  to make them agents, and to assign them sites."
-  [req]
-  (handle-dump req))
-
-(defn admin-modify
-  "Change a user's role.
-  TODO: Handle changing user's sites"
-  [req]
-  (handle-dump req))
-
 ;;; Logging/Debugging
 (defn log-request [req]
   (prn req)) 
@@ -174,9 +161,9 @@
   (GET "/about" req (landing req))
   (GET "/contact" req (landing req))
   (GET "/chatb0x" req (chatb0x req))
-  (GET "/agent-chat" req (chatb0x req))
-  (GET "/admin-dashboard" req (admin-dashboard req))
-;;  (GET "/chatb0x/ws" [] ws/chat-ws)
+  (GET "/agent-chat" req (friend/authorize #{:chatb0x.user/agent} (agent-chat req)))
+  (GET "/admin-dashboard" req (friend/authorize #{:chatb0x.user/admin} (admin-dashboard req)))
+  (GET "/chatb0x/ws" [] ws/chat-ws)
   (GET "/welcome" req
        (friend/authenticated  (welcome req)))
   (GET "/login" req (login req))
@@ -188,18 +175,17 @@
             (swap! users #(-> % (assoc (str/lower-case username) user))) ; (println "user is " user)        
             (friend/merge-authentication (resp/redirect "/welcome") user)) ; (println "register redirect req: " req)
           (resp/redirect "/reregister") ))  
-  (GET "/admin" req (friend/authorize #{:chatb0x.user/admin} (admin-home req)))
   (resources "/js" {:root "react"})
   (not-found (landing {:uri  "PageNotFound"}))) 
 
 (def secured-site
   (-> unsecured-site
       (friend/authenticate {:allow-anon? true
-                            :default-landing-uri "/welcome"
+                            :default-landing-uri "/agent-chat"
                             :credential-fn #(creds/bcrypt-credential-fn @users %)
                             :workflows [(workflows/interactive-form)]})
                                         ; required Ring middlewares
-      ;;(wrap-verbose) ; log the request map
+      (wrap-verbose) ; log the request map
       (wrap-reload)
       (wrap-drop-www)
       (wrap-keyword-params)

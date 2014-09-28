@@ -1,7 +1,15 @@
 (ns chatb0x.core
   (:require [clojure.browser.repl]
             [figwheel.client :as fw :include-macros true]
-            [kioo.om :refer [html content set-style set-attr do-> substitute listen add-class]]
+            [kioo.om :refer [html 
+                             content 
+                             set-style 
+                             set-attr 
+                             do-> 
+                             substitute 
+                             listen 
+                             add-class 
+                             remove-class]]
             [kioo.core :refer [handle-wrapper]]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
@@ -34,13 +42,14 @@
   (.getElementById js/document id))
 
 (def host (.-host js/location))
+(def path (.-pathname js/location))
 
-(def ws-url (str "ws://" host "/ws/chat"))
+(def ws-url (str "ws://" (.-host js/location) "/chatb0x/ws"))
 (def socket (js/WebSocket. ws-url))
 
 (defn send-message [id] 
   (let [message (.-value (by-id id))]
-    (.send socket {:message message :host host})
+    (.send socket {:msg message :host host :path path})
     (set! (.-value (by-id id)) nil)
     (println "chatb0x sent message:" message)))
 
@@ -73,7 +82,6 @@
           (prn "app-state:" @app-state)
           )))
 
-
 (defn gravatar [email]
   (if email
     (do
@@ -105,7 +113,11 @@
 
 ;; ============================================================
 
+<<<<<<< HEAD
 (def my-message-vect [{:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "John McCarthy" :message "Welcome to chatb0x. Please let me know if you have any questions."}])
+=======
+(def my-message-vect [1 {:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "Chatb\u2205x Agent" :message "Welcome to chatb\u2205x. Please let me know if you have any questions."}])
+>>>>>>> websocket-data
 
 (defsnippet chat-message-snippet "public/chatb0x-box.html" 
   [:div.first-conversation]
@@ -113,6 +125,13 @@
   {[:img] (set-attr :src (:gravatar-url msg-vect))
    [:h5.media-heading] (content (:author msg-vect))
    [:small] (content (:message msg-vect))})
+
+(defsnippet agent-message-snippet "public/chatb0x-box.html"
+  [:div.first-agent-conversation]
+  [msg-vect]
+  {[:img] (set-attr :src (:gravatar-url (second msg-vect)))
+   [:h5.media-heading] (content (:author (second msg-vect)))
+   [:small] (content (:message (second msg-vect)))})
 
 (defsnippet chatb0x-snippet "public/chatb0x-box.html"
   [:div.conversation-wrap]
@@ -125,6 +144,20 @@
                            (listen :onKeyDown #(when (= (.-key %) "Enter")
                                                  (send-message "chatb0x-message"))))})
 
+(defsnippet agent-chat-snippet "public/chatb0x-box.html"
+  [:div.agent-conversation-wrap]
+  [data]
+  {[:div.agent-conversation-wrap] (do->
+                                   (add-class "pull-left")
+                                   (add-class "col-lg-12")
+                                   (remove-class "col-lg-8"))
+   [:div.first-agent-conversation] (substitute (chat-message-snippet my-message-vect))
+   [:div.extra-chat] (substitute nil)
+   [:input#message-big] (do->
+                         (set-attr :id "agent-message")
+                         (listen :onKeyDown #(when (= (.-key %) "Enter")
+                                               (send-message "agent-message"))))})
+
 ;; ============================================================
 
 (defn chatb0x-view [data owner]
@@ -136,15 +169,28 @@
     (render [_]
       (om/build (init chatb0x-snippet) data))))
 
+(defn agent-view [data owner]
+  (reify
+    om/IWillMount
+    (will-mount [_]
+      (get-chat-session))
+    om/IRender
+    (render [_]
+      (om/build (init agent-chat-snippet) data))))
+
 (defn page-view [data owner]
   (reify
     om/IRender
     (render [_]
       ;;FIXME
-      (if true ;;(:available-for-chat data)
-        (om/build chatb0x-view data)))))
+      (if (not= path "/agent-chat") ;;(:available-for-chat data)
+        (om/build chatb0x-view data)
+        (om/build agent-view data)))))
 
-(om/root page-view app-state 
-         {:target (.appendChild 
-                   (.-body js/document) 
-                   (.createElement js/document "div"))})
+(if (not= path "/agent-chat")
+  (om/root page-view app-state 
+           {:target (.appendChild 
+                     (.-body js/document) 
+                     (.createElement js/document "div"))})
+  (om/root page-view app-state
+           {:target (.getElementById js/document "agent-message-box")}))

@@ -34,12 +34,19 @@
   :resource-paths ["resources"]
 
   :cljsbuild {:builds 
-              [{:source-paths ["src-cljs"]
+              [
+               {:id "dev"
+                :source-paths ["src-cljs"]
                 :compiler {:output-to "resources/public/scripts/compiled/app.js"
                            :output-dir "resources/public/scripts/compiled"
                            :optimizations :none
                            :pretty-print true
-                           :source-map true}}]}
+                           :source-map true}}
+               {:id "prod"
+                :source-paths ["src-cljs"]
+                :compiler {:output-to "resources/public/scripts/compiled/chatb0x.js"
+                           :optimizations :whitespace
+                           :pretty-print false}}]}
  
   :profiles {:dev {:dependencies [[javax.servlet/servlet-api "2.5"]
                                   [ring-mock "0.1.5"]]

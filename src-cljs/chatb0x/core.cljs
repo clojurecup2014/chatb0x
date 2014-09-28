@@ -33,12 +33,14 @@
 (defn by-id [id]
   (.getElementById js/document id))
 
-(def ws-url (str "ws://" (.-host js/location) "/chatb0x/ws"))
+(def host (.-host js/location))
+
+(def ws-url (str "ws://" host "/ws/chat"))
 (def socket (js/WebSocket. ws-url))
 
 (defn send-message [id] 
   (let [message (.-value (by-id id))]
-    (.send socket {:message message})
+    (.send socket {:message message :host host})
     (set! (.-value (by-id id)) nil)
     (println "chatb0x sent message:" message)))
 
@@ -65,11 +67,20 @@
 ;; FIXME
 (set! (.-onmessage socket)
       (fn [event]
+<<<<<<< HEAD
         (let [data (cljs.reader/read-string (.-data event))]
           (prn "socket.onmessage data:" data)
           (swap! app-state #(update-in % [:msg-vect] conj data))
           (prn "app-state:" @app-state)
           )))
+=======
+        (let [json-data (.parse js/JSON (.-data event))
+              data (js->clj json-data :keywordize-keys true)
+              sorted-message-map (into (sorted-map-by msg-comparator)
+                                       (conj (:msg-vect @app-state) data))]
+          (println "socket.onmessage data:" data)
+          (swap! app-state assoc :msg-vect sorted-message-map))))
+>>>>>>> 1a36ca9b73040e294d4e268465dd328e45266628
 
 (defn gravatar [email]
   (if email
@@ -92,7 +103,7 @@
 ;; ============================================================
 
 (defn get-chat-session []
-  ())
+  )
 
 ;; ============================================================
 
@@ -117,8 +128,10 @@
   {[:div.conversation-wrap] (add-class "pull-right")
    [:div.first-conversation] (substitute (map chat-message-snippet (:msg-vect data)))
    [:div.extra-chat] (substitute nil)
-   [:input#message-small] (listen :onKeyDown #(when (= (.-key %) "Enter")
-                                                (send-message "message-small")))})
+   [:input#message-small] (do->
+                           (set-attr :id "chatb0x-message")
+                           (listen :onKeyDown #(when (= (.-key %) "Enter")
+                                                 (send-message "chatb0x-message"))))})
 
 ;; ============================================================
 

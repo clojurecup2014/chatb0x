@@ -1,35 +1,46 @@
 <div class=container>
   
-  <h2>Admin Dashboard</h2>
+  <h2>Admin Panel</h2>
+
+  <form action="/assign-agents" method="post">
 
   <div class="row col-lg-4">
+
+    <div class="panel panel-default">
+      <div class="panel-heading">Your sites</div>
+    
+      <div class="list-group col-lg-4444" id="siteList">
+        <a class="list-group-item active" href="#">
+          www.clojure-is-cool.com
+        </a>
+        <a class="list-group-item" href="#">www.vim-gt-emacs.com</a>
+        <a class="list-group-item" href="#">www.meta-what.com</a>
+        <a class="list-group-item" href="#">Waiting User 3</a>
+        <a class="list-group-item" href="#">Waiting User 4</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="row col-lg-1"></div>
+  
+  <div class="row col-lg-3">
     <div class="panel panel-default">
 
-      <div class="panel-heading">Your Sites</div>
-
-      <table class="table">
-        <thead>
-          <tr>
-            <th> </th>
-            <th>Web Address</th>
-          </tr>
-        </thead>
+      <div class="panel-heading">Current Agents</div>
+      
+       <table class="table">
         <tbody>
           <tr>
-            <td><input type="radio"></td>
-            <td>www.clojure-is-cool.com</td>
+            <td>nick@geoca.gov</td>
           </tr>
           <tr>
-            <td><input type="radio"></td>
-            <td>www.vim-gt-emacs.com</td>
+            <td>norman@bates.com</td>
           </tr>
           <tr>
-            <td><input type="radio"></td>
-            <td>www.meta-what.com</td>
+            <td>sam@staypufd.net</td>
           </tr>
         </tbody>
       </table>
-
     </div>
   </div>
 
@@ -38,15 +49,9 @@
   <div class="row col-lg-4">
     <div class="panel panel-default">
 
-      <div class="panel-heading">chatb0x users</div>
+      <div class="panel-heading">Potential Agents</div>
 
       <table class="table">
-        <thead>
-          <tr>
-            <th> </th>
-            <th>Email</th>
-          </tr>
-        </thead>
         <tbody>
           <tr>
             <td><input type="checkbox"></td>
@@ -62,7 +67,9 @@
           </tr>
         </tbody>
       </table>
-
     </div>
   </div>
+
+  </form>
 </div>
+

@@ -2,6 +2,7 @@
   (:require [org.httpkit.server :refer [with-channel on-close on-receive send!]]
             [chatb0x.user :refer :all]
             [cheshire.core :refer [generate-string]]
+            [cemerick.friend :as friend]
             [digest :refer [md5]]
             [clojure.string :as str]))
 
@@ -114,7 +115,7 @@
   (with-channel req channel
     ;; CONNECT
     (println req)
-    (if (contains? (get-in req [:session :cemerick.friend/identity :authentications nil :roles]) :chatb0x.user/agent)
+    (if (friend/authorized? #{:chatb0x.user/agent} (friend/identity req))
       (do (println "Agent connected: " channel) ;; Agent
           (swap! ds-clients assoc channel {:name nil :gravatar-url (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username])) :room nil}) ;; Add to ds-clients
           (swap! ds-agents assoc channel {})) 

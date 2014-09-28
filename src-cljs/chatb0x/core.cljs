@@ -24,9 +24,7 @@
  :websocket-url   "ws://localhost:3449/figwheel-ws"
  :jsload-callback (fn [] (print "reloaded")))
 
-(defonce app-state (atom {:msg-vect [{:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "John McCarthy" :message "Welcome to chatb0x. Please let me know if you have any questions."}
-                                     {:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "John McCarthy" :message "Welcome to chatb0x. Please let me know if you have any questions."}
-                                     {:message "Welcome to chatb0x. Please let me know if you have any questions."}
+(defonce app-state (atom {:msg-vect [{:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "Chatb\u2205x Agent" :message "Welcome to chatb\u2205x. Please let me know if you have any questions."}
                                      ]}))
 
 ;; Mockup stuff ========================================
@@ -112,12 +110,6 @@
     (om/component (snippet data))))
 
 ;; ============================================================
-
-<<<<<<< HEAD
-(def my-message-vect [{:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "John McCarthy" :message "Welcome to chatb0x. Please let me know if you have any questions."}])
-=======
-(def my-message-vect [1 {:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "Chatb\u2205x Agent" :message "Welcome to chatb\u2205x. Please let me know if you have any questions."}])
->>>>>>> websocket-data
 
 (defsnippet chat-message-snippet "public/chatb0x-box.html" 
   [:div.first-conversation]

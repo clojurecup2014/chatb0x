@@ -76,12 +76,11 @@
 ;; Agent visitor handling
 (defn send-msg2 [client1 client2 msg]
   (do (if client1
-        (println "Sending client1: " client1 msg)
-        (send! client1 msg false))
+        (do (println "Sending client1: " client1 msg)
+            (send! client1 msg false)))
       (if client2
-        (println "Sending client2" client2 msg)
-        (send! client2 msg false)
-        )))
+        (do  (println "Sending client2" client2 msg)
+             (send! client2 msg false)))))
 
 (defn msg-init [client1 client2]
   "Send address of opposite end to both clients"

@@ -23,7 +23,7 @@
 (def ds-agents (atom {}))   ;; Key: agent-channel; data: {vis1-chnl, vis2-chnl, ...}
 (def ds-visitors (atom {})) ;; Key: visitor-chnl;  data: agent-chnl
 
-(defn get-free-agent [] (rand-nth (keys @ds-agents)))
+(defn get-free-agent [] (first (keys @ds-agents))) ;; TOOD: make rand-nth?
 (defn is-agent [client] (@ds-agents client))
 
 ;; Return nil if unknown
@@ -89,9 +89,9 @@
 
 (defn msg-text [sender data]
   (let [agent   (get-agent   sender)
-        visitor (get-visitor data)
+        visitor (get-visitor sender)
         text    (get-text    data)]
-    (println "In msg-text" agent visitor)
+    (println "In msg-text" agent visitor text)
     (send-msg2 agent visitor (pr-str {:ch-visitor (:ch-visitor data) :message text}))))
 
 (defn msg-close [client]
@@ -130,6 +130,7 @@
                                       ch-visitor channel
                                       gravatar-url   (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username]))] ;; Visitor
                                   (println "Giving visitor an agent...")
+                                  (println ch-visitor)
                                   (ds-agents-add-visitor ch-agent   ch-visitor)
                                   (ds-visitors-add   ch-visitor ch-agent)
                                   (send! ch-agent (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))

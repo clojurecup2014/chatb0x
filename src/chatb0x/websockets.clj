@@ -2,6 +2,7 @@
   (:require [org.httpkit.server :refer [with-channel on-close on-receive send!]]
             [chatb0x.user :refer :all]
             [cheshire.core :refer [generate-string]]
+            [cemerick.friend :as friend]
             [digest :refer [md5]]
             [clojure.string :as str]))
 
@@ -76,23 +77,23 @@
 ;; Agent visitor handling
 (defn send-msg2 [client1 client2 msg]
   (do (if client1
-        (println "Sending client1: " msg)
-        (send! client1 msg false))
+        (do (println "Sending client1: " client1 msg)
+            (send! client1 msg false)))
       (if client2
-        (println "Sending client2" msg)
-        (send! client2 msg false))))
+        (do  (println "Sending client2" client2 msg)
+             (send! client2 msg false)))))
 
 (defn msg-init [client1 client2]
   "Send address of opposite end to both clients"
-  (send! client1 (generate-string {:channel client2}) false)
-  (send! client2 (generate-string {:channel client1}) false))
+  (send! client1 (pr-str {:channel client2}) false)
+  (send! client2 (pr-str {:channel client1}) false))
 
 (defn msg-text [sender data]
   (let [agent   (get-agent   sender)
         visitor (get-visitor data)
         text    (get-text    data)]
-    (println "In msg-text")
-    (send-msg2 agent visitor (generate-string {:ch-visitor (:ch-visitor data) :message text}))))
+    (println "In msg-text" agent visitor)
+    (send-msg2 agent visitor (pr-str {:ch-visitor (:ch-visitor data) :message text}))))
 
 (defn msg-close [client]
   (let [agent   (get-agent   client)
@@ -101,9 +102,9 @@
       (do (println "websockets: agent closed, send closed message to all visitors" (get-agent-visitors agent))
           (doseq [visitor (get-agent-visitors agent)]
             (println "Sending msg to visitor " visitor)
-            (send! visitor (generate-string {:agent agent :visitor visitor :message text}) false)))
+            (send! visitor (pr-str {:agent agent :visitor visitor :message text}) false)))
       (do (println "websockets: visitor closed, send closed message to the agent" client agent)
-          (if (= agent nil) (send! agent (generate-string {:agent agent :visitor client :message text}) false))
+          (if (= agent nil) (send! agent (pr-str {:agent agent :visitor client :message text}) false))
           (println "barbazbop")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -114,7 +115,7 @@
   (with-channel req channel
     ;; CONNECT
     (println req)
-    (if (contains? (get-in req [:session :cemerick.friend/identity :authentications nil :roles]) :chatb0x.user/agent)
+    (if (friend/authorized? #{:chatb0x.user/agent} (friend/identity req))
       (do (println "Agent connected: " channel) ;; Agent
           (swap! ds-clients assoc channel {:name nil :gravatar-url (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username])) :room nil}) ;; Add to ds-clients
           (swap! ds-agents assoc channel {})) 
@@ -123,12 +124,13 @@
             gravatar-url   (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username]))]
         (if (= ch-agent nil)
           (println "ERROR EVENTUALLY!!! no agents on, ignoring visitor!")
-          (do (println "Visitor connected: " channel)
+          (do (println "Visitor connected: " ch-visitor)
               (swap! ds-clients assoc ch-visitor {:name nil :gravatar-url gravatar-url :room nil}) ;; Add to ds-clients
               (ds-agents-add-visitor ch-agent   ch-visitor)
               (ds-visitors-add       ch-visitor ch-agent)
-              (send! ch-agent (generate-string {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)
-              ;; (send! ch-visitor (generate-string {:gravatar-url gravatar-url}) false)
+              (println "sending this message over!!" (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}))
+              (send! ch-agent (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)
+              ;; (send! ch-visitor (pr-str {:gravatar-url gravatar-url}) false)
               ))))
     ;; RECEIVE
     (on-receive channel (fn [data]
@@ -147,7 +149,7 @@
             (let [client-filter-fn (fn [room] (fn [client] (if (= room (:room (val client))) true false)))
                   clients-in-room (fn [room clients] (filter (client-filter-fn room) clients))
                   channels-to-room (keys (clients-in-room room @comment-clients))
-                  message-string (generate-string message-map)]
+                  message-string (pr-str message-map)]
               (when (seq channels-to-room)
                 (println "sending message: " message-map "to" (count channels-to-room) "channels")
                 (doseq [channel channels-to-room]

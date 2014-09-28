@@ -16,7 +16,10 @@
  :websocket-url   "ws://localhost:3449/figwheel-ws"
  :jsload-callback (fn [] (print "reloaded")))
 
-(defonce app-state (atom {}))
+(defonce app-state (atom {:msg-vect [{:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "John McCarthy" :message "Welcome to chatb0x. Please let me know if you have any questions."}
+                                     {:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "John McCarthy" :message "Welcome to chatb0x. Please let me know if you have any questions."}
+                                     {:message "Welcome to chatb0x. Please let me know if you have any questions."}
+                                     ]}))
 
 ;; Mockup stuff ========================================
 
@@ -35,7 +38,7 @@
 
 (defn send-message [id] 
   (let [message (.-value (by-id id))]
-    (.send socket {:msg message})
+    (.send socket {:message message})
     (set! (.-value (by-id id)) nil)
     (println "chatb0x sent message:" message)))
 
@@ -62,12 +65,11 @@
 ;; FIXME
 (set! (.-onmessage socket)
       (fn [event]
-        (let [json-data (.parse js/JSON (.-data event))
-              data (js->clj json-data :keywordize-keys true)
-              sorted-message-map (into (sorted-map-by msg-comparator)
-                                       (conj (:msg-vect @app-state) data))]
-          ;;(println "socket.onmessage data:" data)
-          (swap! app-state assoc :msg-vect sorted-message-map))))
+        (let [data (cljs.reader/read-string (.-data event))]
+          (prn "socket.onmessage data:" data)
+          (swap! app-state #(update-in % [:msg-vect] conj data))
+          (prn "app-state:" @app-state)
+          )))
 
 (defn gravatar [email]
   (if email
@@ -100,20 +102,20 @@
 
 ;; ============================================================
 
-(def my-message-vect [1 {:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "John McCarthy" :message "Welcome to chatb0x. Please let me know if you have any questions."}])
+(def my-message-vect [{:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "John McCarthy" :message "Welcome to chatb0x. Please let me know if you have any questions."}])
 
 (defsnippet chat-message-snippet "public/chatb0x-box.html" 
   [:div.first-conversation]
   [msg-vect]
-  {[:img] (set-attr :src (:gravatar-url (second msg-vect)))
-   [:h5.media-heading] (content (:author (second msg-vect)))
-   [:small] (content (:message (second msg-vect)))})
+  {[:img] (set-attr :src (:gravatar-url msg-vect))
+   [:h5.media-heading] (content (:author msg-vect))
+   [:small] (content (:message msg-vect))})
 
 (defsnippet chatb0x-snippet "public/chatb0x-box.html"
   [:div.conversation-wrap]
   [data]
   {[:div.conversation-wrap] (add-class "pull-right")
-   [:div.first-conversation] (substitute (chat-message-snippet my-message-vect))
+   [:div.first-conversation] (substitute (map chat-message-snippet (:msg-vect data)))
    [:div.extra-chat] (substitute nil)
    [:input#message-small] (listen :onKeyDown #(when (= (.-key %) "Enter")
                                                 (send-message "message-small")))})

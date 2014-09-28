@@ -1,7 +1,8 @@
 (ns chatb0x.websockets
   (:require [org.httpkit.server :refer [with-channel on-close on-receive send!]]
+            [clojure.edn :as edn]
             [chatb0x.user :refer :all]
-            [cheshire.core :refer [generate-string]]))
+            [cheshire.core :refer [generate-string parse-string]]))
 
 ;; BRADS FUNCTIONS FOR DATA
 ;; get-assigned-agents, get-unassigned-agents, get-free-agents 
@@ -25,23 +26,28 @@
     ;; CONNECT
     (println channel "connected")
     (if (nil? @agent-addr)
-           (do (println "agent added")
-            (reset! agent-addr channel))
-           (do (println "vis added")
-            (reset! vis-addr channel)))
+      (do (println "agent added")
+          (reset! agent-addr channel))
+      (do (println "vis added")
+          (reset! vis-addr channel)))
     ;; RECEIVE
     (on-receive channel (fn [data]
-                          (println "on-receive channel:" channel " data:" data)
-                          (if (= @agent-addr channel)
-                            (do (println "Sending to vis") (send! @vis-addr (generate-string data) false)) ;; Send agent msg to visitor
-                            (do (println "Sending to agent") (send! @agent-addr (generate-string data) false))))) ;; Send visitor msg to agent
+                          (prn "on-receive channel:" channel " data:" data)
+                          (let [data (edn/read-string data)]
+                            (if (= @agent-addr channel)
+                              (do
+                                (prn "Sending to channel:" channel " data:" data)
+                                (send! @vis-addr (pr-str data) false)) ;; Send agent msg to visitor
+                              (do
+                                (prn "Sending to channel::" channel " data:" data)
+                                (send! @agent-addr (pr-str data) false)))))) ;; Send visitor msg to agent
     ;; CLOSE
     (on-close channel (fn [status]
-                        (println channel "disconnected. status: " status)
+                        (prn channel "disconnected. status: " status)
                         (if (= @vis-addr channel)
-                          (do (println "visitor disconnecting")
+                          (do (prn "visitor disconnecting")
                               (reset! vis-addr nil) ;; Visitor disconnected
                               (if @agent-addr (msg-close @agent-addr)))
-                          (do (println "agent disconnecting")
+                          (do (prn "agent disconnecting")
                               (reset! agent-addr nil) ;; Agent disconnected
                               (if @vis-addr (msg-close @vis-addr))))))))

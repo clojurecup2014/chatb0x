@@ -25,7 +25,8 @@
 (defn get-agent-visitors [client]
   (get @ds-agents client nil))
 
-;; Return nil if unknown
+;; This gets the visitor from the agent message header
+;; Return nil if unknown.
 (defn get-visitor [data]
   (do (println "websockets: fn(get-visitor)->" (:visitor data))
       (:visitor data)))               
@@ -72,7 +73,8 @@
   (let [agent   (get-agent   sender)
         visitor (get-visitor data)
         text    (get-text    data)]
-    (send-msg2 agent visitor (generate-string {:agent agent :visitor visitor :message text}))))
+    (send-msg2 agent visitor (generate-string ;; TODO FIX :agent :visitor !!!
+                              {:agent "agent-baz" :visitor "visitor-bar" :message text}))))
 
 (defn msg-close [client]
   (let [agent   (get-agent   client)
@@ -93,15 +95,14 @@
 (defn chat-ws [req]
   (with-channel req channel
     ;; CONNECT
-    (println channel "connected")
     (swap! ds-clients assoc channel {:name nil :email nil :room nil}) ;; Add to ds-clients
     (if (= (get-free-agent) nil)
-      (do (println "here") (swap! ds-agents assoc channel {}) (println "there")) ;; Agent
-      (let [agent   (get-free-agent)     ;; Visitor
+      (do (println "Agent connected: " channel) ;; Agent
+          (swap! ds-agents assoc channel {})) 
+      (let [agent   (get-free-agent)            ;; Visitor
             visitor channel]
-        (println "beer")
+        (println "Visitor connected: " channel)
         (ds-agents-add-visitor agent   visitor)
-        (println "beer2")
         (ds-visitors-add       visitor agent)))
     ;; RECEIVE
     (on-receive channel (fn [data]

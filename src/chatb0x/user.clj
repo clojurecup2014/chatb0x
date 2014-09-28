@@ -35,6 +35,8 @@
                                                   :sites #{"clojurecup.com"}
                                                   :in-chat false}}))
 
+(derive ::admin ::agent)
+
 (defn check-registration
   "Validates the username and password"
   [username password]

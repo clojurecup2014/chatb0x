@@ -19,7 +19,6 @@
 (defn get-agent [client]
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
-    (println "here, but wierd")
     (println "websockets: get-agent")
     (or agent1 agent2)))
 (defn get-agent-visitors [client]
@@ -91,19 +90,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; If user, then connect up agent. Both user and agent get init message.
 ;; If agent, then no need to connect up. Just store agent in ds-clients.
-;; TODO- connect visitor w/ agent; reconsider the problem of multi-user to single agent in datastructure
+;; TODO- LOG MESSAGES, 
 (defn chat-ws [req]
   (with-channel req channel
     ;; CONNECT
     (swap! ds-clients assoc channel {:name nil :email nil :room nil}) ;; Add to ds-clients
-    (if (= (get-free-agent) nil)
+    (if (= ((:new-path req) "/agent-chat"))
       (do (println "Agent connected: " channel) ;; Agent
           (swap! ds-agents assoc channel {})) 
       (let [agent   (get-free-agent)            ;; Visitor
             visitor channel]
         (println "Visitor connected: " channel)
         (ds-agents-add-visitor agent   visitor)
-        (ds-visitors-add       visitor agent)))
+        (ds-visitors-add       visitor agent)
+        (send! agent (generate-string {:visitor visitor}) false)))
     ;; RECEIVE
     (on-receive channel (fn [data]
                           (println "on-receive channel:" channel " data:" data)

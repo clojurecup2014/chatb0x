@@ -1,7 +1,18 @@
 (ns chatb0x.websockets
   (:require [org.httpkit.server :refer [with-channel on-close on-receive send!]]
             [chatb0x.user :refer :all]
-            [cheshire.core :refer [generate-string]]))
+            [cheshire.core :refer [generate-string]]
+            [digest :refer [md5]]
+            [clojure.string :as str]))
+
+(defn calc-gravatar [email]
+  (if email
+    (str "http://www.gravatar.com/avatar/"
+         (-> email
+             (str/trim)
+             (str/lower-case)
+             (md5)))
+    (str "http://www.gravatar.com/avatar/")))
 
 ;; BRADS FUNCTIONS FOR DATA
 ;; get-assigned-agents, get-unassigned-agents, get-free-agents 

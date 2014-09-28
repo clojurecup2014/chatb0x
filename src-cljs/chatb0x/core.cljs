@@ -66,7 +66,7 @@
 
 (set! (.-onopen socket)
       (fn [event]
-        (.send socket {:new-path path :new-host host})
+;;        (.send socket {:new-path path :new-host host})
         (println "WebSocket connected. Destination: " ws-url)))
 
 ;; The keys are all ints, so sort them such that :10 > :2

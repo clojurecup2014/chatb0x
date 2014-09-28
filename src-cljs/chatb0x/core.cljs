@@ -30,12 +30,14 @@
 (defn by-id [id]
   (.getElementById js/document id))
 
-(def ws-url (str "ws://" (.-host js/location) "/chatb0x/ws"))
+(def host (.-host js/location))
+
+(def ws-url (str "ws://" host "/ws/chat"))
 (def socket (js/WebSocket. ws-url))
 
 (defn send-message [id] 
   (let [message (.-value (by-id id))]
-    (.send socket {:msg message})
+    (.send socket {:msg message :host host})
     (set! (.-value (by-id id)) nil)
     (println "chatb0x sent message:" message)))
 
@@ -66,7 +68,7 @@
               data (js->clj json-data :keywordize-keys true)
               sorted-message-map (into (sorted-map-by msg-comparator)
                                        (conj (:msg-vect @app-state) data))]
-          ;;(println "socket.onmessage data:" data)
+          (println "socket.onmessage data:" data)
           (swap! app-state assoc :msg-vect sorted-message-map))))
 
 (defn gravatar [email]

@@ -1,0 +1,20 @@
+.jumbotron {
+	background-position: center;
+	background-size: 100% auto;
+	background-image: url(/img/artistic.jpg);
+	border-radius: 6px;
+}
+
+.jumbotron h1 {
+	color: #fff;
+	/*text-shadow: 2px 2px #100e19;*/
+	font-size: 63px;
+	line-height: 75px;
+        font-weight: 700;
+}
+.jumbotron p {
+	color: #fff;
+	text-shadow: 2px 2px #100e19;
+	line-height: 1.5em;
+	/*-webkit-text-stroke: 1px black;*/
+}

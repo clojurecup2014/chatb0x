@@ -181,7 +181,7 @@
 (def secured-site
   (-> unsecured-site
       (friend/authenticate {:allow-anon? true
-                            :default-landing-uri "/welcome"
+                            :default-landing-uri "/agent-chat"
                             :credential-fn #(creds/bcrypt-credential-fn @users %)
                             :workflows [(workflows/interactive-form)]})
                                         ; required Ring middlewares

@@ -62,6 +62,9 @@
 (html/defsnippet admin-dash "public/admin-dashboard.html"
   [:div.container] [])
 
+(html/defsnippet marketing "public/marketing.html"
+  [:div.marketing] [])
+
 (html/defsnippet auth-profile (io/resource "public/welcome.html")
   [:body :div.user]
   [req]
@@ -93,7 +96,7 @@
 (html/deftemplate landing (io/resource "public/landing.html")
   [req]
   [:body :div.navbar] (html/substitute (navbar req))
-  [:body :#content] (html/substitute (non-app-content req))
+  [:body :#content] (html/substitute (marketing))
   [:body] (brepl-injection))
 
 ;;; Default page for erroneous logins 
@@ -194,3 +197,4 @@
       (wrap-session)
       ;;(wrap-lint)
       ))
+

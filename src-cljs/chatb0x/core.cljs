@@ -143,7 +143,7 @@
                                    (add-class "pull-left")
                                    (add-class "col-lg-12")
                                    (remove-class "col-lg-8"))
-   [:div.first-agent-conversation] (substitute (chat-message-snippet my-message-vect))
+   [:div.first-agent-conversation] (substitute (map chat-message-snippet (:msg-vect data)))
    [:div.extra-chat] (substitute nil)
    [:input#message-big] (do->
                          (set-attr :id "agent-message")

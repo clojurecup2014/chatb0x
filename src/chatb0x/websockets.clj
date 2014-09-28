@@ -23,7 +23,7 @@
 (def ds-agents (atom {}))   ;; Key: agent-channel; data: {vis1-chnl, vis2-chnl, ...}
 (def ds-visitors (atom {})) ;; Key: visitor-chnl;  data: agent-chnl
 
-(defn get-free-agent [] (first (keys @ds-agents)))
+(defn get-free-agent [] (rand-nth (keys @ds-agents)))
 (defn is-agent [client] (@ds-agents client))
 
 ;; Return nil if unknown
@@ -103,8 +103,8 @@
             (println "Sending msg to visitor " visitor)
             (send! visitor (pr-str {:agent agent :visitor visitor :message text}) false)))
       (do (println "websockets: visitor closed, send closed message to the agent" client agent)
-          (if (= agent nil) (send! agent (pr-str {:agent agent :visitor client :message text}) false))
-          (println "barbazbop")))))
+          (if agent (send! agent (pr-str {:agent agent :visitor client :message text}) false))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; If user, then connect up agent. Both user and agent get init message.
@@ -118,46 +118,31 @@
       (do (println "Agent connected: " channel) ;; Agent
           (swap! ds-clients assoc channel {:name nil :gravatar-url (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username])) :room nil}) ;; Add to ds-clients
           (swap! ds-agents assoc channel {})) 
-      (let [ch-agent   (get-free-agent)            ;; Visitor
-            ch-visitor channel
+      (let [ch-visitor channel
             gravatar-url   (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username]))]
-        (if (= ch-agent nil)
-          (println "ERROR EVENTUALLY!!! no agents on, ignoring visitor!")
-          (do (println "Visitor connected: " ch-visitor)
-              (swap! ds-clients assoc ch-visitor {:name nil :gravatar-url gravatar-url :room nil}) ;; Add to ds-clients
-              (ds-agents-add-visitor ch-agent   ch-visitor)
-              (ds-visitors-add       ch-visitor ch-agent)
-              (println "sending this message over!!" (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}))
-              (send! ch-agent (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)
-              ;; (send! ch-visitor (pr-str {:gravatar-url gravatar-url}) false)
-              ))))
+        (do (println "Visitor connected: " ch-visitor)
+            (swap! ds-clients assoc ch-visitor {:name nil :gravatar-url gravatar-url :room nil}) ;; Add to ds-clients
+            (ds-visitors-add       ch-visitor nil))))
     ;; RECEIVE
     (on-receive channel (fn [data]
-                          (println "on-receive channel:" channel " data:" data)
-                          (msg-text channel data)))
+                          (do (if (= (get @ds-visitors channel) nil)
+                                (let [ch-agent   (get-free-agent)
+                                      ch-visitor channel
+                                      gravatar-url   (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username]))] ;; Visitor
+                                  (println "Giving visitor an agent...")
+                                  (ds-agents-add-visitor ch-agent   ch-visitor)
+                                  (ds-visitors-add   ch-visitor ch-agent)
+                                  (send! ch-agent (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))
+                              (println "on-receive channel:" channel " data:" data)
+                              (msg-text channel data))))
     ;; CLOSE
     (on-close channel   (fn [status]
-                          (println channel "disconnected. status: " status)
-                          (msg-close channel)
-                          (println "baz")
-                          (close-cleanup-ds channel)))))
+                          (do (println channel "disconnected. status: " status)
+                              (msg-close channel)
+                              (println "baz")
+                              (close-cleanup-ds channel))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Commented code
-(comment  (defn send-msg [message-map room]
-            (let [client-filter-fn (fn [room] (fn [client] (if (= room (:room (val client))) true false)))
-                  clients-in-room (fn [room clients] (filter (client-filter-fn room) clients))
-                  channels-to-room (keys (clients-in-room room @comment-clients))
-                  message-string (pr-str message-map)]
-              (when (seq channels-to-room)
-                (println "sending message: " message-map "to" (count channels-to-room) "channels")
-                (doseq [channel channels-to-room]
-                  (send! channel message-string false))))))
 
-(comment  )
 
-(comment  (defn send-message-to-clients [msg]
-            (let [clients (keys @clients)]
-              (when (seq clients)
-                (doseq [client clients]
-                  (send! client msg false))))))

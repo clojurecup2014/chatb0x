@@ -5,14 +5,15 @@
             [digest :refer [md5]]
             [clojure.string :as str]))
 
-(defn calc-gravatar [email]
-  (if email
-    (str "http://www.gravatar.com/avatar/"
-         (-> email
-             (str/trim)
-             (str/lower-case)
-             (md5)))
-    (str "http://www.gravatar.com/avatar/")))
+(defn calc-gravatar [req]
+  (let [email (get-in req [:session :cemerick.friend/identity :authentications nil :username])]
+    (if email
+      (str "http://www.gravatar.com/avatar/"
+           (-> email
+               (str/trim)
+               (str/lower-case)
+               (md5)))
+      (str "http://www.gravatar.com/avatar/"))))
 
 ;; BRADS FUNCTIONS FOR DATA
 ;; get-assigned-agents, get-unassigned-agents, get-free-agents 
@@ -73,15 +74,32 @@
     (remove-visitor client)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Agent visitor handling
-(defn send-msg2 [client1 client2 msg]
-  (do (if client1
-        (do (println "Sending client1: " client1 msg)
-            (send! client1 msg false)))
-      (if client2
-        (do  (println "Sending client2" client2 msg)
-             (send! client2 msg false)))))
+;; New Code
 
+(defn is-client-a-visitor)
+(defn is-client-an-agent [req] contains?
+  (get-in req
+          [:session :cemerick.friend/identity :authentications nil :roles]
+          :chatb0x.user/agent))
+(defn add-new-ds-clients [req channel]
+                   (swap! ds-clients assoc channel
+                          {:name nil
+                           :gravatar-url (calc-gravatar req)
+                           :room nil}))
+(defn add-new-ds-agents [channel] (swap! ds-agents assoc channel {}))
+(defn add-new-ds-visitors [visitor agent]
+  (swap! ds-visitors assoc visitor nil))
+(defn get-unconnected-visitors)
+(defn visitor-is-connected [channel] (get @ds-visitors channel))
+(defn connect-agents-to-unconnected-visitors [])
+(defn get-agent-from-client [client]
+  (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
+        agent2 (if (is-agent client) client nil)] ;; Client is agent or not
+    (println "websockets: get-agent")
+    (or agent1 agent2)))
+(def client-has-associated-agent get-agent-from-client)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Agent visitor handling
 (defn msg-init [client1 client2]
   "Send address of opposite end to both clients"
   (send! client1 (pr-str {:channel client2}) false)
@@ -90,9 +108,11 @@
 (defn msg-text [sender data]
   (let [agent   (get-agent   sender)
         visitor (get-visitor sender)
-        text    (get-text    data)]
-    (println "In msg-text" agent visitor text)
-    (send-msg2 agent visitor (pr-str {:ch-visitor (:ch-visitor data) :message text}))))
+        text    (pr-str {:ch-visitor (:ch-visitor data) :message (get-text data)})]
+    (when agent
+      (send! agent text false)
+      (when visitor
+        (send! vistor text false)))))
 
 (defn msg-close [client]
   (let [agent   (get-agent   client)
@@ -113,28 +133,16 @@
 (defn chat-ws [req]
   (with-channel req channel
     ;; CONNECT
-    (println req)
-    (if (contains? (get-in req [:session :cemerick.friend/identity :authentications nil :roles]) :chatb0x.user/agent)
-      (do (println "Agent connected: " channel) ;; Agent
-          (swap! ds-clients assoc channel {:name nil :gravatar-url (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username])) :room nil}) ;; Add to ds-clients
-          (swap! ds-agents assoc channel {})) 
-      (let [ch-visitor channel
-            gravatar-url   (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username]))]
-        (do (println "Visitor connected: " ch-visitor)
-            (swap! ds-clients assoc ch-visitor {:name nil :gravatar-url gravatar-url :room nil}) ;; Add to ds-clients
-            (ds-visitors-add       ch-visitor nil))))
+    (if (is-client-an-agent req)
+      (do (println "Connected, agent: " req) ;; TODO: Connect all unconnected visitors to agent(s)
+          (add-new-ds-clients req channel)
+          (add-new-ds-agents      chanenl))
+      (do (println "Connected, visitor: " req)
+          (add-new-ds-clients req channel)
+          (add-new-ds-visitors    channel)))
     ;; RECEIVE
     (on-receive channel (fn [data]
-                          (do (if (= (get @ds-visitors channel) nil)
-                                (let [ch-agent   (get-free-agent)
-                                      ch-visitor channel
-                                      gravatar-url   (calc-gravatar (get-in req [:session :cemerick.friend/identity :authentications nil :username]))] ;; Visitor
-                                  (println "Giving visitor an agent...")
-                                  (println ch-visitor)
-                                  (ds-agents-add-visitor ch-agent   ch-visitor)
-                                  (ds-visitors-add   ch-visitor ch-agent)
-                                  (send! ch-agent (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))
-                              (println "on-receive channel:" channel " data:" data)
+                          (do (println "on-receive channel:" channel " data:" data)
                               (msg-text channel data))))
     ;; CLOSE
     (on-close channel   (fn [status]
@@ -145,5 +153,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Commented code
-
-
+(comment (do (if (is-visitor-unconnected? channel)
+               (let [ch-agent   (get-free-agent)
+                     ch-visitor channel
+                     gravatar-url   (calc-gravatar req)] ;; Visitor
+                 (println "Giving visitor an agent...")
+                 (println ch-visitor)
+                 (ds-agents-add-visitor ch-agent   ch-visitor)
+                 (ds-visitors-add   ch-visitor ch-agent)
+                 (send! ch-agent (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))))

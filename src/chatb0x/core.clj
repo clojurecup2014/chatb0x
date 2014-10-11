@@ -100,7 +100,15 @@
 (html/deftemplate landing (io/resource "public/landing.html")
   [req]
   [:body :div.navbar] (html/substitute (navbar req))
-  [:body :#content] (html/substitute (marketing))
+  [:body :#content] (html/do->
+                      (html/substitute (non-app-content req))
+                      (html/append (marketing)))
+  [:body] (brepl-injection))
+
+(html/deftemplate other-landing (io/resource "public/landing.html")
+  [req]
+  [:body :div.navbar] (html/substitute (navbar req))
+  [:body :#content] (html/substitute (non-app-content req))
   [:body] (brepl-injection))
 
 ;;; Default page for erroneous logins 
@@ -166,8 +174,8 @@
 (defroutes unsecured-site
   (resources "/")
   (GET "/" req (landing req))
-  (GET "/about" req (landing req))
-  (GET "/contact" req (landing req))
+  (GET "/about" req (other-landing req))
+  (GET "/contact" req (other-landing req))
   (GET "/chatb0x" req (chatb0x req))
   (GET "/agent-chat" req (friend/authorize #{:chatb0x.user/agent} (agent-chat req)))
   (GET "/admin-dashboard" req (friend/authorize #{:chatb0x.user/admin} (admin-dashboard req)))

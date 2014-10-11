@@ -2,6 +2,7 @@
   (:require [org.httpkit.server :refer [with-channel on-close on-receive send!]]
             [chatb0x.user :refer :all]
             [cheshire.core :refer [generate-string]]
+            [cemerick.friend :as friend]
             [digest :refer [md5]]
             [clojure.string :as str]))
 
@@ -14,7 +15,7 @@
                (str/lower-case)
                (md5)))
       (str "http://www.gravatar.com/avatar/"))))
-
+(defn agent-is-authorized [req] (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)))
 ;; BRADS FUNCTIONS FOR DATA
 ;; get-assigned-agents, get-unassigned-agents, get-free-agents 
 ;; Get brad to make get-free-agent
@@ -145,7 +146,7 @@
   (with-channel req channel
     ;; CONNECT
     (debug-print-data-structures)
-    (if (is-client-an-agent req)
+    (if (and (is-client-an-agent req) (agent-is-authorized req))
       (do (println "ws-connected:" "\n\t agent-channel" (:async-channel req)) ;; TODO: Connect all unconnected visitors to agent(s)
           (add-new-ds-clients req channel)
           (add-new-ds-agents      channel)

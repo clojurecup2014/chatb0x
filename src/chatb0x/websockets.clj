@@ -31,7 +31,6 @@
 (defn get-agent [client]
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
-    (println "websockets: get-agent")
     (or agent1 agent2)))
 (defn get-agent-visitors [client]
   (get @ds-agents client nil))
@@ -39,11 +38,9 @@
 ;; This gets the visitor from the agent message header
 ;; Return nil if unknown.
 (defn get-visitor [data]
-  (do (println "websockets: fn(get-visitor)->" (:visitor data))
-      (:visitor data)))               
+  (:visitor data))               
 
 (defn ds-agents-add-visitor [agent visitor]
-  (println agent visitor)
   (swap! ds-agents assoc-in [agent visitor] visitor)
   ;;(update-in @ds-agents [agent] #(assoc % visitor visitor))
   )
@@ -51,7 +48,8 @@
 (defn ds-visitors-add [visitor agent]
   (swap! ds-visitors assoc visitor agent))
 
-(defn get-text [data] (:message data))
+(defn get-text [data]
+  (:message (read-string data)))
 
 (defn remove-agent [client]
   (let [visitors (get @ds-agents client)]
@@ -63,39 +61,42 @@
 
 (defn remove-visitor [client]
   (swap! ds-clients dissoc client)       ;; Cleanup: remove agent from ds-clients
-  (swap! ds-agents update-in [(get-agent client)] dissoc client)
+  (if (get ds-visitors client)
+    (swap! ds-agents update-in [(get-agent client)] dissoc client))
   (swap! ds-visitors dissoc client))    ;; Cleanup: remove agent from ds-visitors
 
-(defn close-cleanup-ds [client]
+(defn close-cleanup-ds [client] ;; TODO: simplify by making functions innocuous. (do (remove-agent) (remove-visitor))
   (if (is-agent client)
-    (do (println "bazolla!")
-        (remove-agent client)
-        (println "bazolla2!"))
+    (remove-agent   client)
     (remove-visitor client)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; New Code
 
-(defn is-client-a-visitor)
-(defn is-client-an-agent [req] contains?
-  (get-in req
-          [:session :cemerick.friend/identity :authentications nil :roles]
-          :chatb0x.user/agent))
+;;(defn is-client-a-visitor)
+(defn is-client-an-agent [req]
+  (let [value (get-in req
+                      [:session :cemerick.friend/identity :authentications nil :username])]
+    value))
 (defn add-new-ds-clients [req channel]
                    (swap! ds-clients assoc channel
                           {:name nil
                            :gravatar-url (calc-gravatar req)
                            :room nil}))
 (defn add-new-ds-agents [channel] (swap! ds-agents assoc channel {}))
-(defn add-new-ds-visitors [visitor agent]
-  (swap! ds-visitors assoc visitor nil))
-(defn get-unconnected-visitors)
+(defn add-new-ds-visitors [visitor]
+  (let [agent (get-free-agent)]
+    (swap! ds-visitors assoc visitor agent)
+    (if agent (swap! ds-agents assoc-in [agent visitor] visitor))))
 (defn visitor-is-connected [channel] (get @ds-visitors channel))
-(defn connect-agents-to-unconnected-visitors [])
+
+(defn connect-unconnected-visitors-to-agents []
+  (doseq [visitor @ds-visitors]
+    (println "visitor:: " visitor)))
+
 (defn get-agent-from-client [client]
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
-    (println "websockets: get-agent")
     (or agent1 agent2)))
 (def client-has-associated-agent get-agent-from-client)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -107,12 +108,16 @@
 
 (defn msg-text [sender data]
   (let [agent   (get-agent   sender)
-        visitor (get-visitor sender)
-        text    (pr-str {:ch-visitor (:ch-visitor data) :message (get-text data)})]
-    (when agent
-      (send! agent text false)
-      (when visitor
-        (send! vistor text false)))))
+        visitor (get-visitor data)
+        text    (get-text data)
+        msg     (pr-str {:ch-visitor (:ch-visitor data) :message text})]
+    (when text
+      (when agent
+        (println "sending serv->agent:" msg "to" agent)
+        (send! agent msg false)
+        (when visitor
+          (println "sending serv->visitor" msg "to" visitor)
+          (send! visitor msg false))))))
 
 (defn msg-close [client]
   (let [agent   (get-agent   client)
@@ -129,26 +134,34 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; If user, then connect up agent. Both user and agent get init message.
 ;; If agent, then no need to connect up. Just store agent in ds-clients.
-;; TODO- LOG MESSAGES, 
+
+(defn debug-print-data-structures []
+  (do (println "Clients DS:  " @ds-clients)
+      (println "Agents DS:   " @ds-agents)
+      (println "Visitors DS: " @ds-visitors)))
+;;(def list-unconnected-clients (atom (list)))
+
 (defn chat-ws [req]
   (with-channel req channel
     ;; CONNECT
+    (debug-print-data-structures)
     (if (is-client-an-agent req)
-      (do (println "Connected, agent: " req) ;; TODO: Connect all unconnected visitors to agent(s)
+      (do (println "ws-connected:" "\n\t agent-channel" (:async-channel req)) ;; TODO: Connect all unconnected visitors to agent(s)
           (add-new-ds-clients req channel)
-          (add-new-ds-agents      chanenl))
-      (do (println "Connected, visitor: " req)
+          (add-new-ds-agents      channel)
+          (connect-unconnected-visitors-to-agents))
+      (do (println "ws-connected:" "\n\t visitor-channel" (:async-channel req))
           (add-new-ds-clients req channel)
           (add-new-ds-visitors    channel)))
+    (debug-print-data-structures)
     ;; RECEIVE
     (on-receive channel (fn [data]
-                          (do (println "on-receive channel:" channel " data:" data)
+                          (do (println "ws-receive:" "\n\t channel"  channel "\n\t data"  data)
                               (msg-text channel data))))
     ;; CLOSE
     (on-close channel   (fn [status]
-                          (do (println channel "disconnected. status: " status)
+                          (do (println channel "ws-close:" "\n\t status"  status)
                               (msg-close channel)
-                              (println "baz")
                               (close-cleanup-ds channel))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -162,3 +175,7 @@
                  (ds-agents-add-visitor ch-agent   ch-visitor)
                  (ds-visitors-add   ch-visitor ch-agent)
                  (send! ch-agent (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))))
+(comment (contains? 
+          (get-in req
+                  [:session :cemerick.friend/identity :authentications nil :roles]
+                  :chatb0x.user/agent)))

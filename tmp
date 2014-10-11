@@ -1,0 +1,98 @@
+{:cookies
+  {ring-session
+    {:value 71d81853-1750-4bd8-bba8-d4553a22df38}
+  },
+:remote-addr 127.0.0.1,
+:params {},
+:route-params {},
+:headers
+  {origin http://localhost:8080, host localhost:8080, upgrade websocket, user-agent Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/37.0.2062.120 Chrome/37.0.2062.120 Safari/537.36, cookie ring-session=71d81853-1750-4bd8-bba8-d4553a22df38, connection Upgrade, pragma no-cache, sec-websocket-key 44VbZpg9TIGI2XD7CLi/BA==, sec-websocket-version 13, sec-websocket-extensions permessage-deflate; client_max_window_bits, x-webkit-deflate-frame, cache-control no-cache},
+:async-channel #<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:57459>,
+:server-port 8080,
+:content-length 0,
+:form-params {},
+:websocket? true,
+:session/key nil,
+:query-params {},
+:content-type nil,
+:character-encoding utf8,
+:uri /chatb0x/ws,
+:server-name localhost,
+:query-string nil,
+:body nil,
+:scheme :http,
+:cemerick.friend/auth-config
+  {:allow-anon? true,
+   :default-landing-uri /agent-chat,
+   :login-uri /login,
+   :credential-fn #<core$fn__11494 chatb0x.core$fn__11494@283d1624>,
+   :workflows [#<workflows$interactive_form$fn__5173 cemerick.friend.workflows$interactive_form$fn__5173@7fe8fb50>]},
+   :request-method :get,
+   :session {}}
+
+
+is-client-an-agent:
+{:cookies
+  {ring-session
+    {:value 44814493-28ee-41c8-a185-0fa05954fd05}
+  },
+:remote-addr 127.0.0.1,
+:params {},
+:route-params {},
+:headers
+  {origin http://localhost:8080,
+  host localhost:8080,
+  upgrade websocket,
+  user-agent Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/37.0.2062.120 Chrome/37.0.2062.120 Safari/537.36,
+  cookie ring-session=44814493-28ee-41c8-a185-0fa05954fd05,
+  connection Upgrade,
+  pragma no-cache,
+  sec-websocket-key vcvCOtLaHGkObqwzOfYADg==,
+  sec-websocket-version 13,
+  sec-websocket-extensions permessage-deflate;
+  client_max_window_bits,
+  x-webkit-deflate-frame,
+  cache-control no-cache
+  },
+:async-channel #<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:57531>,
+:server-port 8080,
+:content-length 0,
+:form-params {},
+:websocket? true,
+:session/key 44814493-28ee-41c8-a185-0fa05954fd05,
+:query-params {},
+:content-type nil,
+:character-encoding utf8,
+:uri /chatb0x/ws,
+:server-name localhost,
+:query-string nil,
+:body nil, :scheme :http,
+:cemerick.friend/auth-config
+  {:allow-anon? true,
+  :default-landing-uri /agent-chat,
+  :login-uri /login,
+  :credential-fn #<core$fn__11494 chatb0x.core$fn__11494@72f6852>,
+  :workflows [#<workflows$interactive_form$fn__5173 cemerick.friend.workflows$interactive_form$fn__5173@56c1bccd>]},
+  :request-method :get, :session {:cemerick.friend/unauthorized-uri http://localhost:8080/welcome}
+}
+
+is-client-an-agent:
+{:cookies
+  {ring-session
+    {:value 44814493-28ee-41c8-a185-0fa05954fd05}
+  },
+:remote-addr 127.0.0.1,
+:params {},
+:route-params {},
+:headers {origin http://localhost:8080, host localhost:8080, upgrade websocket, user-agent Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/37.0.2062.120 Chrome/37.0.2062.120 Safari/537.36, cookie ring-session=44814493-28ee-41c8-a185-0fa05954fd05, connection Upgrade, pragma no-cache, sec-websocket-key nh11EvL6nE4s0uOlbcqGYQ==, sec-websocket-version 13, sec-websocket-extensions permessage-deflate; client_max_window_bits, x-webkit-deflate-frame, cache-control no-cache}, :async-channel #<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:57535>, :server-port 8080, :content-length 0, :form-params {}, :websocket? true, :session/key 44814493-28ee-41c8-a185-0fa05954fd05, :query-params {}, :content-type nil, :character-encoding utf8, :uri /chatb0x/ws, :server-name localhost, :query-string nil, :body nil, :scheme :http, :cemerick.friend/auth-config {:allow-anon? true, :default-landing-uri /agent-chat, :login-uri /login, :credential-fn #<core$fn__11494 chatb0x.core$fn__11494@72f6852>, :workflows [#<workflows$interactive_form$fn__5173 cemerick.friend.workflows$interactive_form$fn__5173@56c1bccd>]},
+:request-method :get,
+:session
+  {:cemerick.friend/identity
+    {:current nil,
+    :authentications
+      {nil
+        {:in-chat false,
+	:sites #{},
+	:roles #{:chatb0x.user/agent},
+	:password $2a$10$DLmL1Ggz6lE.V1UZr7NiJupqEaZ71uV3j1pXXzARGaNvDl9/0iM..,
+	:username nickgeoca@gamil.com}}}}}

@@ -1,7 +1,8 @@
 (ns chatb0x.websockets
   (:require [org.httpkit.server :refer [with-channel on-close on-receive send!]]
             [chatb0x.user :refer :all]
-            [cheshire.core :refer [generate-string]]
+            [cheshire.core :refer [generate-string
+                                   parse-string]]
             [cemerick.friend :as friend]
             [digest :refer [md5]]
             [clojure.string :as str]))
@@ -44,12 +45,15 @@
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
     (or agent1 agent2)))
+
 (defn get-agent-visitors [client]
   (get @ds-agents client nil))
+
 (defn ds-agents-add-visitor [agent visitor]
   (if (= visitor {})
     (swap! ds-agents assoc agent {})
     (swap! ds-agents assoc-in [agent visitor] visitor)))
+
 (defn ds-visitors-add [visitor agent] (swap! ds-visitors assoc visitor agent))
 
 (defn remove-agent [client]
@@ -84,20 +88,33 @@
                           {:name nil
                            :gravatar-url (calc-gravatar req)
                            :room nil}))
+
+(def my-visitor (atom nil))
+
+(def channel-ip-map (atom nil))
+
 (defn connect-visitor-to-agent [visitor]
-  (let [agent (get-free-agent)
-        msg   (pr-str {:visitor-join visitor})]
-    (println "sending serv->agent" msg to agent)
+  (let [agent (get-free-agent)       
+        channel-string (generate-string (pr-str visitor))
+        matcher (re-matcher #"\>\/\d+\.\d+\.\d+\.\d+\:\d+" channel-string)
+        ip (subs (re-find matcher) 2)
+        msg (generate-string {:visitor-join ip})]
+    (reset! my-visitor visitor)
+    (swap! channel-ip-map assoc ip visitor)
+    (println "***sending serv->agent" msg " to " agent)
     (when agent (send! agent msg false))))
+
 (defn connect-unconnected-visitors-to-agents []
   (doseq [visitor @ds-visitors]
     (let [visitor-channel     (first visitor)
           visitor-unconnected (not (second visitor))]
       (when visitor-unconnected (connect-visitor-to-agent visitor-channel)))))
+
 (defn connect-agent-to-visitor [agent data]
   (let [visitor (:agent-join data)]
     (ds-agents-add-visitor agent visitor)
     (ds-visitors-add       visitor agent)))
+
 (defn get-agent-from-client [client]
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
@@ -110,7 +127,7 @@
         visitor (get-visitor data)
         text    (get-text data)
         gravatar-url (:gravatar-url (get-in @ds-clients [sender]))
-        msg     (pr-str {:ch-visitor (:ch-visitor data) :message text :gravatar-url gravatar-url})]
+        msg     (generate-string {:ch-visitor (:ch-visitor data) :message text :gravatar-url gravatar-url})]
     (println "msg-text: \n\tsender: " sender "\n\tdata: " data "\n\tgrav: " gravatar-url)
     (when text
       (when agent
@@ -127,9 +144,9 @@
       (do (println "websockets: agent closed, send closed message to all visitors" (get-agent-visitors agent))
           (doseq [visitor (get-agent-visitors agent)]
             (println "Sending msg to visitor " visitor)
-            (send! visitor (pr-str {:agent agent :visitor visitor :message text}) false)))
+            (send! visitor (generate-string {:agent agent :visitor visitor :message text}) false)))
       (do (println "websockets: visitor closed, send closed message to the agent" client agent)
-          (if agent (send! agent (pr-str {:agent agent :visitor client :message text}) false))))))
+          (if agent (send! agent (generate-string {:agent agent :visitor client :message text}) false))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -181,7 +198,7 @@
                  (println ch-visitor)
                  (ds-agents-add-visitor ch-agent   ch-visitor)
                  (ds-visitors-add   ch-visitor ch-agent)
-                 (send! ch-agent (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))))
+                 (send! ch-agent (generate-string {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))))
 (comment (contains? 
           (get-in req
                   [:session :cemerick.friend/identity :authentications nil :roles]

@@ -35,7 +35,9 @@
     (swap! app-state #(update-in % [:msg-vect] (vector default-msg)))))
 
 (defn add-visitor [id]
-  (swap! app-state #(assoc-in % [:ch-set] (conj (:ch-set %) id))))
+  (do
+    (println "adding new visitor: " id)
+    (swap! app-state #(assoc-in % [:ch-set] (conj (:ch-set %) id)))))
 
 (defn remove-visitor [id]
   (swap! app-state #(update-in % [:ch-set] disj id)))
@@ -75,9 +77,6 @@
         #(when (or (= (.-keyCode %) 13)
                    (= (.-which %) 13)) 
            (send-message id))))
-(comment
-  (set-send-field "message-big")
-  (set-send-field "message-small"))
 
 ;; define your app data so that it doesn't get over-written on reload
 (defonce app-data (atom {}))
@@ -94,10 +93,16 @@
 ;; FIXME
 (set! (.-onmessage socket)
       (fn [event]
-        (let [data (cljs.reader/read-string (.-data event))]
+        (let [json-data (.parse js/JSON (.-data event))
+              data (js->clj json-data :keywordize-keys true)]
           (println "socket.onmessage data:" data)
+  
+          (when-not (get-in data [:visitor-join])
+            (swap! app-state #(update-in % [:msg-vect] conj data)))
           
-          (swap! app-state #(update-in % [:msg-vect] conj data))
+          (when (get-in data [:visitor-join])
+             (add-visitor (:visitor-join data)))
+
           (println "app-state:" @app-state)
           )))
 

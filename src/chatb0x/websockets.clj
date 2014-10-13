@@ -111,6 +111,7 @@
                           {:name nil
                            :gravatar-url (calc-gravatar req)
                            :room nil}))
+
 (def my-visitor (atom nil)) ;;DEBUG
 (defn connect-visitor-to-agent [visitor]
   (let [agent (get-free-agent)]
@@ -142,7 +143,7 @@
         visitor (get-visitor data)
         text    (get-text data)
         gravatar-url (:gravatar-url (get-in @ds-clients [sender]))
-        msg     (pr-str {:ch-visitor (:ch-visitor data) :message text :gravatar-url gravatar-url})]
+        msg     (generate-string {:ch-visitor (:ch-visitor data) :message text :gravatar-url gravatar-url})]
     (println "msg-text: \n\tsender: " sender "\n\tdata: " data "\n\tgrav: " gravatar-url)
     (when text
       (when agent
@@ -159,9 +160,9 @@
       (do (println "websockets: agent closed, send closed message to all visitors" (get-agent-visitors agent))
           (doseq [visitor (get-agent-visitors agent)]
             (println "Sending msg to visitor " visitor)
-            (send! visitor (pr-str {:agent agent :visitor visitor :message text}) false)))
+            (send! visitor (generate-string {:agent agent :visitor visitor :message text}) false)))
       (do (println "websockets: visitor closed, send closed message to the agent" client agent)
-          (if agent (send! agent (pr-str {:agent agent :visitor client :message text}) false))))))
+          (if agent (send! agent (generate-string {:agent agent :visitor client :message text}) false))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -216,7 +217,7 @@
                  (println ch-visitor)
                  (ds-agents-add-visitor ch-agent   ch-visitor)
                  (ds-visitors-add   ch-visitor ch-agent)
-                 (send! ch-agent (pr-str {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))))
+                 (send! ch-agent (generate-string {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))))
 (comment (contains? 
           (get-in req
                   [:session :cemerick.friend/identity :authentications nil :roles]

@@ -24,8 +24,21 @@
  :websocket-url   "ws://localhost:3449/figwheel-ws"
  :jsload-callback (fn [] (print "reloaded")))
 
-(defonce app-state (atom {:msg-vect [{:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "Chatb\u2205x Agent" :message "Welcome to chatb\u2205x. Please let me know if you have any questions."}
-                                     ]}))
+(def default-msg {:gravatar-url "http://www.gravatar.com/avatar/94736001f6c023d37cd5d132f092bf3b" :author "Chatb\u2205x Agent" :message "Welcome to chatb\u2205x. Please let me know if you have any questions."})
+
+(defonce app-state (atom {:msg-vect [default-msg]
+                          :ch-set #{"216.130.226.188:49843" "232.148.235.50:49845" "124.104.2.85:49850"}
+                          :selected-channel nil}))
+
+(defn reset-msg-vect []
+  (comment
+    (swap! app-state #(update-in % [:msg-vect] (vector default-msg)))))
+
+(defn add-visitor [id]
+  (swap! app-state #(assoc-in % [:ch-set] (conj (:ch-set %) id))))
+
+(defn remove-visitor [id]
+  (swap! app-state #(update-in % [:ch-set] disj id)))
 
 ;; Mockup stuff ========================================
 
@@ -51,6 +64,11 @@
     (.send socket {:message message :host host :path path})
     (set! (.-value (by-id id)) nil)
     (println "chatb0x sent message:" message)))
+
+(defn send-join [channel]
+  (do
+    (println "send-join: " channel)
+    (.send socket {:agent-join channel})))
 
 (defn set-send-field [id]
   (set! (.-onkeydown (by-id id)) 
@@ -113,6 +131,14 @@
     (om/component (snippet data))))
 
 ;; ============================================================
+(comment
+  (defn set-active-visitor [id]
+    (let [node (.getElementById id)
+          parent (.parentNode node)]
+      (for each-node (.childNodes parent)
+           ))))
+
+;; ============================================================
 
 (defsnippet chat-message-snippet "public/chatb0x-box.html" 
   [:div.first-conversation]
@@ -156,19 +182,22 @@
                                                (send-message "agent-message"))))})
 
 (defsnippet visitor-list-snippet "public/agent-chatb0x.html"
-  [:a.first]
+  [:div#visitor-list :> [:a first-of-type]]
   [channel]
-  {[:a.first] (content "Hello!")
-   })
+  {[:a] (do-> (content channel)
+              (set-attr :id channel)
+              (if (= channel (:selected-channel @app-state))
+                (add-class "active")
+                (remove-class "active"))
+              (listen :onClick #(let [event-id (.-id (.-currentTarget %))]
+                                  (send-join event-id)
+                                  (swap! app-state assoc :selected-channel event-id)
+                                  (reset-msg-vect))))})
 
 (defsnippet list-snippet "public/agent-chatb0x.html"
   [:div#visitor-list]
   [data]
-  {[:a.first] (substitute (map visitor-list-snippet 
-                                      (filter #(:ch-visitor %)
-                                              (:msg-vect data))))})
-
-
+  {[:div#visitor-list] (substitute (map visitor-list-snippet (:ch-set data)))})
 
 ;; ============================================================
 

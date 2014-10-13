@@ -6,8 +6,12 @@
             [digest :refer [md5]]
             [clojure.string :as str]))
 
+(def my-req (atom nil))
+
 (defn calc-gravatar [req]
   (let [email (get-in req [:session :cemerick.friend/identity :authentications nil :username])]
+    (println "***calc-gravatar: \n\treq: " req "\n\temail: " email)
+    (reset! my-req req)
     (if email
       (str "http://www.gravatar.com/avatar/"
            (-> email
@@ -15,6 +19,7 @@
                (str/lower-case)
                (md5)))
       (str "http://www.gravatar.com/avatar/"))))
+
 (defn agent-is-authorized [req] (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; This gets the visitor from the agent message header
@@ -73,6 +78,7 @@
 (defn is-client-an-agent [req]
   (let [value (get-in req [:session :cemerick.friend/identity :authentications nil :username])]
     value))
+
 (defn add-new-ds-clients [req channel]
                    (swap! ds-clients assoc channel
                           {:name nil
@@ -103,7 +109,9 @@
   (let [agent   (get-agent   sender)
         visitor (get-visitor data)
         text    (get-text data)
-        msg     (pr-str {:ch-visitor (:ch-visitor data) :message text})]
+        gravatar-url (:gravatar-url (get-in @ds-clients [sender]))
+        msg     (pr-str {:ch-visitor (:ch-visitor data) :message text :gravatar-url gravatar-url})]
+    (println "msg-text: \n\tsender: " sender "\n\tdata: " data "\n\tgrav: " gravatar-url)
     (when text
       (when agent
         (println "sending serv->agent:" msg "to" agent)

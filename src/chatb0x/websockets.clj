@@ -21,6 +21,7 @@
       (str "http://www.gravatar.com/avatar/"))))
 
 (defn agent-is-authorized [req] (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)))
+
 ;; BRADS FUNCTIONS FOR DATA
 ;; get-assigned-agents, get-unassigned-agents, get-free-agents 
 ;; Get brad to make get-free-agent
@@ -82,18 +83,25 @@
 ;;(defn is-client-a-visitor)
 (defn is-client-an-agent [req]
   (let [value (get-in req
-                      [:session :cemerick.friend/identity :authentications nil :username])]
+                      [:session 
+                       :cemerick.friend/identity 
+                       :authentications nil 
+                       :username])]
     value))
+
 (defn add-new-ds-clients [req channel]
                    (swap! ds-clients assoc channel
                           {:name nil
                            :gravatar-url (calc-gravatar req)
                            :room nil}))
+
 (defn add-new-ds-agents [channel] (swap! ds-agents assoc channel {}))
+
 (defn add-new-ds-visitors [visitor]
   (let [agent (get-free-agent)]
     (swap! ds-visitors assoc visitor agent)
     (if agent (swap! ds-agents assoc-in [agent visitor] visitor))))
+
 (defn visitor-is-connected [channel] (get @ds-visitors channel))
 
 (defn connect-unconnected-visitors-to-agents []
@@ -118,7 +126,9 @@
   (let [agent   (get-agent   sender)
         visitor (get-visitor data)
         text    (get-text data)
-        msg     (pr-str {:ch-visitor (:ch-visitor data) :message text})]
+        gravatar-url (:gravatar-url (get-in @ds-clients [sender]))
+        msg     (pr-str {:ch-visitor (:ch-visitor data) :message text :gravatar-url gravatar-url})]
+    (println "msg-text: \n\tsender: " sender "\n\tdata: " data "\n\tgrav: " gravatar-url)
     (when text
       (when agent
         (println "sending serv->agent:" msg "to" agent)

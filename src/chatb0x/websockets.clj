@@ -6,8 +6,12 @@
             [digest :refer [md5]]
             [clojure.string :as str]))
 
+(def my-req (atom nil))
+
 (defn calc-gravatar [req]
   (let [email (get-in req [:session :cemerick.friend/identity :authentications nil :username])]
+    (println "***calc-gravatar: \n\treq: " req "\n\temail: " email)
+    (reset! my-req req)
     (if email
       (str "http://www.gravatar.com/avatar/"
            (-> email
@@ -15,6 +19,7 @@
                (str/lower-case)
                (md5)))
       (str "http://www.gravatar.com/avatar/"))))
+
 (defn agent-is-authorized [req] (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)))
 ;; BRADS FUNCTIONS FOR DATA
 ;; get-assigned-agents, get-unassigned-agents, get-free-agents 
@@ -99,7 +104,9 @@
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
     (or agent1 agent2)))
+
 (def client-has-associated-agent get-agent-from-client)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Agent visitor handling
 (defn msg-init [client1 client2]

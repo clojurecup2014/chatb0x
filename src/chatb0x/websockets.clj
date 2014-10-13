@@ -87,6 +87,7 @@
 (defn connect-visitor-to-agent [visitor]
   (let [agent (get-free-agent)
         msg   (pr-str {:visitor-join visitor})]
+    (println "sending serv->agent" msg to agent)
     (when agent (send! agent msg false))))
 (defn connect-unconnected-visitors-to-agents []
   (doseq [visitor @ds-visitors]

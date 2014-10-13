@@ -5,8 +5,7 @@
             [cemerick.friend :as friend]
             [digest :refer [md5]]
             [clojure.string :as str]))
-;; Bugs:
-;; 1) If visitor drops before agent trys to join, then there will be an error.
+
 (def my-req (atom nil))
 
 (defn calc-gravatar [req]
@@ -46,11 +45,11 @@
     (swap! channel-ip-map dissoc ip)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; This gets the visitor from the agent message header
-(defn get-visitor [data]              (:visitor (read-string data)))
+(defn get-visitor-from-msg [data]     (:visitor (read-string data)))
 (defn message-is-chat [data]          (:message (read-string data)))
 (defn message-is-agent-connect [data] (ip-to-chnl (:agent-join (read-string data))))
 (defn get-text [data]                 (:message (read-string data)))
-(defn format-vis-join [visitor]       (generate-string (pr-str {:visitor-join (chnl-to-ip visitor)})))
+(defn format-vis-join [visitor]       (generate-string {:visitor-join (chnl-to-ip visitor)}))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Structures
 (def ds-clients (atom {}))  ;; Key: channel;       data: email, name, etc
@@ -68,6 +67,13 @@
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
     (or agent1 agent2)))
 
+;; Complicated, but vistior either comes from msg, is the sender, or there is no visitor
+(defn get-visitor [sender data]
+  (let [vis-from-msg  (get-visitor-from-msg data)
+        sender-to-vis (if  (get @ds-visitors sender false) sender false)]
+    (if vis-from-msg
+      vis-from-msg
+      sender-to-vis)))
 (defn get-agent-visitors [client]
   (get @ds-agents client nil))
 
@@ -140,7 +146,7 @@
 ;; Agent visitor handling
 (defn msg-text [sender data]
   (let [agent   (get-agent   sender)
-        visitor (get-visitor data)
+        visitor (get-visitor sender data)
         text    (get-text data)
         gravatar-url (:gravatar-url (get-in @ds-clients [sender]))
         msg     (generate-string {:ch-visitor (:ch-visitor data) :message text :gravatar-url gravatar-url})]
@@ -176,9 +182,9 @@
       (ds-visitors-add channel nil)
       (add-chnl channel)))
 (defn debug-print-data-structures []
-  (do (println "Clients DS:  " @ds-clients)
-      (println "Agents DS:   " @ds-agents)
-      (println "Visitors DS: " @ds-visitors)))
+  (comment (do (println "Clients DS:  " @ds-clients)
+               (println "Agents DS:   " @ds-agents)
+               (println "Visitors DS: " @ds-visitors))))
 ;;(def list-unconnected-clients (atom (list)))
 
 (defn chat-ws [req]
@@ -209,42 +215,30 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Commented code
-(comment (do (if (is-visitor-unconnected? channel)
-               (let [ch-agent   (get-free-agent)
-                     ch-visitor channel
-                     gravatar-url   (calc-gravatar req)] ;; Visitor
-                 (println "Giving visitor an agent...")
-                 (println ch-visitor)
-                 (ds-agents-add-visitor ch-agent   ch-visitor)
-                 (ds-visitors-add   ch-visitor ch-agent)
-                 (send! ch-agent (generate-string {:ch-visitor (str ch-visitor) :gravatar-url gravatar-url}) false)))))
-(comment (contains? 
-          (get-in req
-                  [:session :cemerick.friend/identity :authentications nil :roles]
-                  :chatb0x.user/agent)))
-;; (comment  (defn connect-visitors []
-;;             )
-;;           (defn async-connect-visitors-to-agents []
-;;             (future (loop []
-;;                       (connect-visitors)
-;;                       (Thread/sleep 1000)
-;;                       (recur)))))
-(comment (defn stub []
-           (doseq [visitor @ds-visitors]
-             (if-not (second visitor) ;; If value nil
-               (let [agent (get-free-agent)]
-                 (ds-agents-add-visitor ag
-                                        ent visitor)
-                 (ds-visitors-add visitor agent)
-                 )))))
 
-(comment (defn connect-visitor-to-agent [visitor]
-           (let [agent (get-free-agent)
-                 msg (generate-string (pr-str {:visitor-join visitor}))
-                 channel-string (generate-string (pr-str visitor))
-                 matcher (re-matcher #"\>\/\d+\.\d+\.\d+\.\d+\:\d+" channel-string)
-                 ip (subs (re-find matcher) 2)]
-             (reset! my-visitor visitor)
-             (swap! channel-ip-map assoc ip visitor)
-             (println "***sending serv->agent" msg " to " agent)
-             (when agent (send! agent msg false)))))
+;;;;;;;; BUGS
+;;;; 1) If visitor drops before agent trys to join, then there will be an error.
+;;;; 2) Null type channel gets put into agent. Possibly happens when removing all visitors. See debug output below.
+;;       * See in below: Agents DS:    {#<AsyncChannel 0.0.0.0/0.0.0.0:8080<->null> {}}
+;; ws-connected: 
+;; 	 agent-channel #<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:55942>
+;; ***calc-gravatar: 
+;; 	req:  {:cookies {ring-session {:value d7be478e-bbfa-4136-9bcd-9f7a54a9829d}}, :remote-addr 127.0.0.1, :params {}, :route-params {}, :headers {origin http://localhost:8080, host localhost:8080, upgrade websocket, user-agent Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:32.0) Gecko/20100101 Firefox/32.0, cookie ring-session=d7be478e-bbfa-4136-9bcd-9f7a54a9829d, connection keep-alive, Upgrade, pragma no-cache, sec-websocket-key d/cEIk+RUp2yYhGOp9pmVg==, accept text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8, accept-language en-US,en;q=0.5, sec-websocket-version 13, accept-encoding gzip, deflate, cache-control no-cache}, :async-channel #<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:55942>, :server-port 8080, :content-length 0, :form-params {}, :websocket? true, :session/key d7be478e-bbfa-4136-9bcd-9f7a54a9829d, :query-params {}, :content-type nil, :character-encoding utf8, :uri /chatb0x/ws, :server-name localhost, :query-string nil, :body nil, :scheme :http, :cemerick.friend/auth-config {:allow-anon? true, :default-landing-uri /agent-chat, :login-uri /login, :credential-fn #<core$fn__11518 chatb0x.core$fn__11518@4c21986a>, :workflows [#<workflows$interactive_form$fn__5173 cemerick.friend.workflows$interactive_form$fn__5173@5ac81e10>]}, :request-method :get, :session {:cemerick.friend/identity {:current nil, :authentications {nil {:in-chat false, :sites #{}, :roles #{:chatb0x.user/agent}, :password $2a$10$e1goq5kHiR9xauiifbFP1ehNKXZsaJ4M2oNloWjfMrZ0qYtfLF6GO, :username nickgeoca@gmail.com}}}}} 
+;; 	email:  nickgeoca@gmail.com
+;; Clients DS:   {#<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:55942> {:name nil, :gravatar-url http://www.gravatar.com/avatar/c1af707c54ce0e6f740ded0f7d906dc9, :room nil}}
+;; Agents DS:    {#<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:55942> {}}
+;; Visitors DS:  {}
+;; ws-receive: 
+;; 	 channel #<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:55942> 
+;; 	 data {:initial-path "/welcome"}
+;; #<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:55942> ws-close: 
+;; 	 status :going-away
+;; websockets: agent closed, send closed message to all visitors {}
+;; Clients DS:   {}
+;; Agents DS:    {#<AsyncChannel 0.0.0.0/0.0.0.0:8080<->null> {}}
+;; Visitors DS:  {}
+;; ws-connected: 
+;; 	 agent-channel #<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:55947>
+;; ***calc-gravatar: 
+;; 	req:  {:cookies {ring-session {:value d7be478e-bbfa-4136-9bcd-9f7a54a9829d}}, :remote-addr 127.0.0.1, :params {}, :route-params {}, :headers {origin http://localhost:8080, host localhost:8080, upgrade websocket, user-agent Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:32.0) Gecko/20100101 Firefox/32.0, cookie ring-session=d7be478e-bbfa-4136-9bcd-9f7a54a9829d, connection keep-alive, Upgrade, pragma no-cache, sec-websocket-key MAH61jW77989s5+bt7omuw==, accept text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8, accept-language en-US,en;q=0.5, sec-websocket-version 13, accept-encoding gzip, deflate, cache-control no-cache}, :async-channel #<AsyncChannel /127.0.0.1:8080<->/127.0.0.1:55947>, :server-port 8080, :content-length 0, :form-params {}, :websocket? true, :session/key d7be478e-bbfa-4136-9bcd-9f7a54a9829d, :query-params {}, :content-type nil, :character-encoding utf8, :uri /chatb0x/ws, :server-name localhost, :query-string nil, :body nil, :scheme :http, :cemerick.friend/auth-config {:allow-anon? true, :default-landing-uri /agent-chat, :login-uri /login, :credential-fn #<core$fn__11518 chatb0x.core$fn__11518@4c21986a>, :workflows [#<workflows$interactive_form$fn__5173 cemerick.friend.workflows$interactive_form$fn__5173@5ac81e10>]}, :request-method :get, :session {:cemerick.friend/identity {:current nil, :authentications {nil {:in-chat false, :sites #{}, :roles #{:chatb0x.user/agent}, :password $2a$10$e1goq5kHiR9xauiifbFP1ehNKXZsaJ4M2oNloWjfMrZ0qYtfLF6GO, :username nickgeoca@gmail.com}}}}} 
+;; 	email:  nickgeoca@gmail.com

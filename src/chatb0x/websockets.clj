@@ -16,6 +16,12 @@
                (md5)))
       (str "http://www.gravatar.com/avatar/"))))
 (defn agent-is-authorized [req] (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; This gets the visitor from the agent message header
+(defn get-visitor [data]              (:visitor (read-string data)))
+(defn message-is-chat [data]          (:message (read-string data)))
+(defn message-is-agent-connect [data] (:agent-join (read-string data)))
+(defn get-text [data]                 (:message (read-string data)))
 ;; BRADS FUNCTIONS FOR DATA
 ;; get-assigned-agents, get-unassigned-agents, get-free-agents 
 ;; Get brad to make get-free-agent
@@ -35,22 +41,11 @@
     (or agent1 agent2)))
 (defn get-agent-visitors [client]
   (get @ds-agents client nil))
-
-;; This gets the visitor from the agent message header
-;; Return nil if unknown.
-(defn get-visitor [data]
-  (:visitor data))               
-
 (defn ds-agents-add-visitor [agent visitor]
-  (swap! ds-agents assoc-in [agent visitor] visitor)
-  ;;(update-in @ds-agents [agent] #(assoc % visitor visitor))
-  )
-
-(defn ds-visitors-add [visitor agent]
-  (swap! ds-visitors assoc visitor agent))
-
-(defn get-text [data]
-  (:message (read-string data)))
+  (if (= visitor {})
+    (swap! ds-agents assoc agent {})
+    (swap! ds-agents assoc-in [agent visitor] visitor)))
+(defn ds-visitors-add [visitor agent] (swap! ds-visitors assoc visitor agent))
 
 (defn remove-agent [client]
   (let [visitors (get @ds-agents client)]
@@ -76,37 +71,34 @@
 
 ;;(defn is-client-a-visitor)
 (defn is-client-an-agent [req]
-  (let [value (get-in req
-                      [:session :cemerick.friend/identity :authentications nil :username])]
+  (let [value (get-in req [:session :cemerick.friend/identity :authentications nil :username])]
     value))
 (defn add-new-ds-clients [req channel]
                    (swap! ds-clients assoc channel
                           {:name nil
                            :gravatar-url (calc-gravatar req)
                            :room nil}))
-(defn add-new-ds-agents [channel] (swap! ds-agents assoc channel {}))
-(defn add-new-ds-visitors [visitor]
-  (let [agent (get-free-agent)]
-    (swap! ds-visitors assoc visitor agent)
-    (if agent (swap! ds-agents assoc-in [agent visitor] visitor))))
-(defn visitor-is-connected [channel] (get @ds-visitors channel))
-
+(defn add-new-agent [channel]   ds-agents-add-visitor channel {})
+(defn add-new-visitor [channel] ds-visitors-add channel nil)
+(defn connect-visitor-to-agent [visitor]
+  (let [agent (get-free-agent)
+        msg   (pr-str {:visitor-join visitor})]
+    (when agent (send! agent msg false))))
 (defn connect-unconnected-visitors-to-agents []
   (doseq [visitor @ds-visitors]
-    (println "visitor:: " visitor)))
-
+    (let [visitor-channel     (first visitor)
+          visitor-unconnected (not (second visitor))]
+      (when visitor-unconnected (connect-visitor-to-agent visitor-channel)))))
+(defn connect-agent-to-visitor [agent data]
+  (let [visitor (:agent-join data)]
+    (ds-agents-add-visitor agent visitor)
+    (ds-visitors-add       visitor agent)))
 (defn get-agent-from-client [client]
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
     (or agent1 agent2)))
-(def client-has-associated-agent get-agent-from-client)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Agent visitor handling
-(defn msg-init [client1 client2]
-  "Send address of opposite end to both clients"
-  (send! client1 (pr-str {:channel client2}) false)
-  (send! client2 (pr-str {:channel client1}) false))
-
 (defn msg-text [sender data]
   (let [agent   (get-agent   sender)
         visitor (get-visitor data)
@@ -135,7 +127,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; If user, then connect up agent. Both user and agent get init message.
 ;; If agent, then no need to connect up. Just store agent in ds-clients.
-
+(defn add-new-agent [req channel]
+  (do (add-new-clients req channel)
+      (add-new-agents      channel)))
+(defn add-new-visitor [req channel]
+  (do (add-new-clients req channel)
+      (add-new-visitors    channel)))
 (defn debug-print-data-structures []
   (do (println "Clients DS:  " @ds-clients)
       (println "Agents DS:   " @ds-agents)
@@ -148,22 +145,23 @@
     (debug-print-data-structures)
     (if (and (is-client-an-agent req) (agent-is-authorized req))
       (do (println "ws-connected:" "\n\t agent-channel" (:async-channel req)) ;; TODO: Connect all unconnected visitors to agent(s)
-          (add-new-ds-clients req channel)
-          (add-new-ds-agents      channel)
+          (add-new-agent req channel)
           (connect-unconnected-visitors-to-agents))
       (do (println "ws-connected:" "\n\t visitor-channel" (:async-channel req))
-          (add-new-ds-clients req channel)
-          (add-new-ds-visitors    channel)))
+          (add-new-visitor req channel)
+          (connect-visitor-to-agent channel)))
     (debug-print-data-structures)
     ;; RECEIVE
     (on-receive channel (fn [data]
                           (do (println "ws-receive:" "\n\t channel"  channel "\n\t data"  data)
-                              (msg-text channel data))))
+                              (when (message-is-agent-connect data) (connect-agent-to-visitor channel data))
+                              (when (message-is-chat data)          (msg-text channel data)))))
     ;; CLOSE
     (on-close channel   (fn [status]
                           (do (println channel "ws-close:" "\n\t status"  status)
                               (msg-close channel)
                               (close-cleanup-ds channel))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Commented code
@@ -180,3 +178,18 @@
           (get-in req
                   [:session :cemerick.friend/identity :authentications nil :roles]
                   :chatb0x.user/agent)))
+;; (comment  (defn connect-visitors []
+;;             )
+;;           (defn async-connect-visitors-to-agents []
+;;             (future (loop []
+;;                       (connect-visitors)
+;;                       (Thread/sleep 1000)
+;;                       (recur)))))
+(comment (defn stub []
+           (doseq [visitor @ds-visitors]
+             (if-not (second visitor) ;; If value nil
+               (let [agent (get-free-agent)]
+                 (ds-agents-add-visitor ag
+                                        ent visitor)
+                 (ds-visitors-add visitor agent)
+                 )))))

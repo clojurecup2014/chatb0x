@@ -1,11 +1,12 @@
 (ns chatb0x.websockets
   (:require [org.httpkit.server :refer [with-channel on-close on-receive send!]]
             [chatb0x.user :refer :all]
-            [cheshire.core :refer [generate-string]]
+            [cheshire.core :refer [generate-string parse-string]]
             [cemerick.friend :as friend]
             [digest :refer [md5]]
             [clojure.string :as str]))
-
+;; Bugs:
+;; 1) If visitor drops before agent trys to join, then there will be an error.
 (def my-req (atom nil))
 
 (defn calc-gravatar [req]
@@ -21,22 +22,44 @@
       (str "http://www.gravatar.com/avatar/"))))
 
 (defn agent-is-authorized [req] (friend/authorized? #{:chatb0x.user/agent} (friend/identity req)))
+;; BRADS FUNCTIONS FOR DATA
+;; get-assigned-agents, get-unassigned-agents, get-free-agents 
+;; Get brad to make get-free-agent
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; IP/CHNL Conversion
+(def channel-ip-map (atom {}))
+
+(defn ip-to-chnl [ip] (get @channel-ip-map ip))
+
+(defn chnl-to-ip [chnl]
+  (let [str (re-find (re-matcher #"\>\/\d+\.\d+\.\d+\.\d+\:\d+" (generate-string (pr-str chnl))))]
+    (if str
+      (subs str 2)
+      nil)))
+
+(defn add-chnl [chnl]
+  (let [ip (chnl-to-ip chnl)]
+    (swap! channel-ip-map assoc ip chnl)))
+
+(defn remove-chnl [chnl]
+  (let [ip (chnl-to-ip chnl)]
+    (swap! channel-ip-map dissoc ip)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; This gets the visitor from the agent message header
 (defn get-visitor [data]              (:visitor (read-string data)))
 (defn message-is-chat [data]          (:message (read-string data)))
-(defn message-is-agent-connect [data] (:agent-join (read-string data)))
+(defn message-is-agent-connect [data] (ip-to-chnl (:agent-join (read-string data))))
 (defn get-text [data]                 (:message (read-string data)))
-;; BRADS FUNCTIONS FOR DATA
-;; get-assigned-agents, get-unassigned-agents, get-free-agents 
-;; Get brad to make get-free-agent
+(defn format-vis-join [visitor]       (generate-string (pr-str {:visitor-join (chnl-to-ip visitor)})))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Structures
 (def ds-clients (atom {}))  ;; Key: channel;       data: email, name, etc
 (def ds-agents (atom {}))   ;; Key: agent-channel; data: {vis1-chnl, vis2-chnl, ...}
 (def ds-visitors (atom {})) ;; Key: visitor-chnl;  data: agent-chnl
-
+(defn print-ds [] (println "\nagents" @ds-agents "\nvisitors" @ds-visitors "\nclients" @ds-clients "\nchannel-ip-map" @channel-ip-map))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn get-free-agent [] (first (keys @ds-agents))) ;; TOOD: make rand-nth?
+
 (defn is-agent [client] (@ds-agents client))
 
 ;; Return nil if unknown
@@ -44,12 +67,15 @@
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
     (or agent1 agent2)))
+
 (defn get-agent-visitors [client]
   (get @ds-agents client nil))
+
 (defn ds-agents-add-visitor [agent visitor]
   (if (= visitor {})
     (swap! ds-agents assoc agent {})
     (swap! ds-agents assoc-in [agent visitor] visitor)))
+
 (defn ds-visitors-add [visitor agent] (swap! ds-visitors assoc visitor agent))
 
 (defn remove-agent [client]
@@ -61,6 +87,7 @@
     (swap! ds-agents dissoc agent)))
 
 (defn remove-visitor [client]
+  (remove-chnl client)
   (swap! ds-clients dissoc client)       ;; Cleanup: remove agent from ds-clients
   (if (get ds-visitors client)
     (swap! ds-agents update-in [(get-agent client)] dissoc client))
@@ -84,20 +111,25 @@
                           {:name nil
                            :gravatar-url (calc-gravatar req)
                            :room nil}))
+(def my-visitor (atom nil)) ;;DEBUG
 (defn connect-visitor-to-agent [visitor]
-  (let [agent (get-free-agent)
-        msg   (pr-str {:visitor-join visitor})]
-    (println "sending serv->agent" msg to agent)
-    (when agent (send! agent msg false))))
+  (let [agent (get-free-agent)]
+    (when agent
+      (let [msg (format-vis-join visitor)]
+        (println "sending serv->agent" msg "to" agent)  
+        (send! agent msg false)))))
+
 (defn connect-unconnected-visitors-to-agents []
   (doseq [visitor @ds-visitors]
     (let [visitor-channel     (first visitor)
           visitor-unconnected (not (second visitor))]
       (when visitor-unconnected (connect-visitor-to-agent visitor-channel)))))
+
 (defn connect-agent-to-visitor [agent data]
-  (let [visitor (:agent-join data)]
+  (let [visitor (message-is-agent-connect data)]
     (ds-agents-add-visitor agent visitor)
     (ds-visitors-add       visitor agent)))
+
 (defn get-agent-from-client [client]
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
@@ -140,7 +172,8 @@
       (ds-agents-add-visitor channel {})))
 (defn add-new-visitor [req channel]
   (do (add-new-client req channel)
-      (ds-visitors-add channel nil)))
+      (ds-visitors-add channel nil)
+      (add-chnl channel)))
 (defn debug-print-data-structures []
   (do (println "Clients DS:  " @ds-clients)
       (println "Agents DS:   " @ds-agents)
@@ -151,11 +184,13 @@
   (with-channel req channel
     ;; CONNECT
     (debug-print-data-structures)
-    (if (and (is-client-an-agent req) (agent-is-authorized req))
-      (do (println "ws-connected:" "\n\t agent-channel" (:async-channel req)) ;; TODO: Connect all unconnected visitors to agent(s)
-          (add-new-agent req channel)
-          (connect-unconnected-visitors-to-agents))
+    (if (is-client-an-agent req)
+      (when (agent-is-authorized req)
+        (do (println "ws-connected:" "\n\t agent-channel" (:async-channel req)) ;; TODO: Connect all unconnected visitors to agent(s)
+            (add-new-agent req channel)
+            (connect-unconnected-visitors-to-agents)))
       (do (println "ws-connected:" "\n\t visitor-channel" (:async-channel req))
+          (reset! my-visitor channel) ;;DEBUG
           (add-new-visitor req channel)
           (connect-visitor-to-agent channel)))
     (debug-print-data-structures)
@@ -201,3 +236,14 @@
                                         ent visitor)
                  (ds-visitors-add visitor agent)
                  )))))
+
+(comment (defn connect-visitor-to-agent [visitor]
+           (let [agent (get-free-agent)
+                 msg (generate-string (pr-str {:visitor-join visitor}))
+                 channel-string (generate-string (pr-str visitor))
+                 matcher (re-matcher #"\>\/\d+\.\d+\.\d+\.\d+\:\d+" channel-string)
+                 ip (subs (re-find matcher) 2)]
+             (reset! my-visitor visitor)
+             (swap! channel-ip-map assoc ip visitor)
+             (println "***sending serv->agent" msg " to " agent)
+             (when agent (send! agent msg false)))))

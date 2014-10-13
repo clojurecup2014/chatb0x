@@ -79,13 +79,11 @@
   (let [value (get-in req [:session :cemerick.friend/identity :authentications nil :username])]
     value))
 
-(defn add-new-ds-clients [req channel]
+(defn add-new-client [req channel]
                    (swap! ds-clients assoc channel
                           {:name nil
                            :gravatar-url (calc-gravatar req)
                            :room nil}))
-(defn add-new-agent [channel]   ds-agents-add-visitor channel {})
-(defn add-new-visitor [channel] ds-visitors-add channel nil)
 (defn connect-visitor-to-agent [visitor]
   (let [agent (get-free-agent)
         msg   (pr-str {:visitor-join visitor})]
@@ -103,6 +101,7 @@
   (let [agent1 (@ds-visitors client)              ;; Client is visitor, lookup agent
         agent2 (if (is-agent client) client nil)] ;; Client is agent or not
     (or agent1 agent2)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Agent visitor handling
 (defn msg-text [sender data]
@@ -136,11 +135,11 @@
 ;; If user, then connect up agent. Both user and agent get init message.
 ;; If agent, then no need to connect up. Just store agent in ds-clients.
 (defn add-new-agent [req channel]
-  (do (add-new-clients req channel)
-      (add-new-agents      channel)))
+  (do (add-new-client req channel)
+      (ds-agents-add-visitor channel {})))
 (defn add-new-visitor [req channel]
-  (do (add-new-clients req channel)
-      (add-new-visitors    channel)))
+  (do (add-new-client req channel)
+      (ds-visitors-add channel nil)))
 (defn debug-print-data-structures []
   (do (println "Clients DS:  " @ds-clients)
       (println "Agents DS:   " @ds-agents)

@@ -32,7 +32,7 @@
 (defn message-is-chat [data]          (:message (read-string data)))
 (defn message-is-agent-connect [data] (data/ip-to-chnl (:agent-join (read-string data))))
 (defn get-text [data]                 (:message (read-string data)))
-(defn format-vis-join [visitor]       (generate-string {:visitor-join (chnl-to-ip visitor)}))
+(defn format-vis-join [visitor]       (generate-string {:visitor-join (data/chnl-to-ip visitor)}))
 (defn from-msg-is-client-an-agent [req] (get-in req [:session :cemerick.friend/identity :authentications nil :username]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -54,29 +54,25 @@
         (send! agent msg false)))))
 
 (defn connect-unconnected-visitors-to-agents []
-  (doseq [visitor @data/visitors]
+  (doseq [visitor data/db-all-visitors]
     (let [visitor-channel     (first visitor)
           visitor-unconnected (not (second visitor))]
       (when visitor-unconnected (connect-visitor-to-agent visitor-channel)))))
 
 (defn connect-agent-to-visitor [agent data]
   (let [visitor (message-is-agent-connect data)]
+    (data/db-set-agents-chat-visitor agent visitor)
     (data/db-add-agent   agent visitor)
     (data/db-add-visitor visitor agent)))
-
-(defn get-agent-from-client [client]
-  (let [agent1 (@data/visitors client)              ;; Client is visitor, lookup agent
-        agent2 (if (data/agent-in-db client) client nil)] ;; Client is agent or not
-    (or agent1 agent2)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Agent visitor handling
 
 (defn msg-text [sender data]
   (let [agent   (data/db-get-agent-with-any-chnl   sender)
-        visitor (get-visitor-from-msg-or-if-client-is-visitor sender data)
+        visitor (or  (get-visitor-from-msg-or-if-client-is-visitor sender data) (data/db-get-agents-chat-visitor agent))
         text    (get-text data)
-        gravatar-url (:gravatar-url (get-in @data/clients [sender]))
+        gravatar-url (:gravatar-url (data/db-get-client-data sender))
         msg     (generate-string {:ch-visitor (:ch-visitor data) :message text :gravatar-url gravatar-url})]
     (println "msg-text: \n\tsender: " sender "\n\tdata: " data "\n\tgrav: " gravatar-url)
     (when text
@@ -102,20 +98,26 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; If user, then connect up agent. Both user and agent get init message.
 ;; If agent, then no need to connect up. Just store agent in data/clients.
+(defn gen-user-data [req]
+  {:name nil
+   :gravatar-url (calc-gravatar req)
+   :room nil})
+(def var1 (atom nil))
 (defn chat-ws [req]
   (with-channel req channel
     ;; CONNECT
     (if (from-msg-is-client-an-agent req)
       (when (agent-is-authorized req)
         (do (println "ws-connected:" "\n\t agent-channel" (:async-channel req)) ;; TODO: Connect all unconnected visitors to agent(s)
-            (data/add-agent req channel)
+            (data/add-agent channel (gen-user-data req))
             (connect-unconnected-visitors-to-agents)))
       (do (println "ws-connected:" "\n\t visitor-channel" (:async-channel req))
-          (data/add-visitor req channel)
+          (data/add-visitor channel (gen-user-data req))
           (connect-visitor-to-agent channel)))
     ;; RECEIVE
     (on-receive channel (fn [data]
                           (do (println "ws-receive:" "\n\t channel"  channel "\n\t data"  data)
+                              (reset! var1 data)
                               (when (message-is-agent-connect data) (connect-agent-to-visitor channel data))
                               (when (message-is-chat data)          (msg-text channel data)))))
     ;; CLOSE
@@ -123,5 +125,5 @@
                           (do (println channel "ws-close:" "\n\t status"  status)
                               (msg-close channel)
                               (cond
-                               (data/agent-in-db client)   (data/delete-agent  client)
-                               (data/visitor-in-db client) (data/delete-visitor client)))))))
+                               (data/agent-in-db channel)   (data/delete-agent  channel)
+                               (data/visitor-in-db channel) (data/delete-visitor channel)))))))

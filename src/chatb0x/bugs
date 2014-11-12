@@ -26,3 +26,9 @@
 ;; 	email:  nickgeoca@gmail.com
 ;;;; 3) websockets: channel type to string type and vice versa needs to be figured out when deleting agent/visitor from database
 ;;;; 4) data: May need way of getting agent for visitor in current model. see db-get-free-agent
+;;;; 5) websockets: add agent authorization to all websocket protocol functions? i.e. connect, receive, close
+;;;; 6) when visitor closes, it is sending incorrect channel #<AsyncChannel 0.0.0.0/0.0.0.0:8080<->null>
+;;;; 7) data: eventually going to have to have agent datastructure nested more.
+;;   ex: {"agent1" {"current-connected-visitor" "vis1"
+;;                  "visitors" {"vis1" vis1
+;;                              ...}}}

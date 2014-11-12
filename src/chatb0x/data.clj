@@ -28,11 +28,8 @@
 (def map-agents (atom {}))   ;; Key: agent-channel; data: {vis1-chnl, vis2-chnl, ...}
 (def map-visitors (atom {})) ;; Key: visitor-chnl;  data: agent-chnl
 
-(defn db-add-client [req channel]
-  (swap! map-clients assoc channel
-         {:name nil
-          :gravatar-url (websockets/calc-gravatar req)
-          :room nil}))
+(defn db-add-client [channel user-data]
+  (swap! map-clients assoc channel user-data))
 
 (defn db-add-visitor [ch-visitor ch-agent] (swap! map-visitors assoc ch-visitor ch-agent))
 
@@ -43,35 +40,35 @@
 
 (defn db-get-free-agent [] (first (keys @map-agents)))
 
-(defn db-get-agent-with-any-chnl [ch-client]
-  (let [ch-agent1 (@map-visitors ch-client)              ;; Client is visitor, lookup agent
-        ch-agent2 (if (is-agent ch-client) ch-client nil)] ;; Client is agent or not
-    (or ch-agent1 ch-agent2)))
-
 (defn db-get-agent-visitors [ch-client]
   (get @map-agents ch-client nil))
 
-(defn db-get-visitor-data [ch-visitor] (get @map-visitors ch-sender false))
-
+(defn db-get-visitor-data [ch-visitor] (get @map-visitors ch-visitor false))
+(defn db-get-client-data [ch-client] (get-in @map-clients [ch-client]))
 (defn agent-in-db [ch-client] (db-get-agent-visitors ch-client))
 
 (defn visitor-in-db [ch-visitor] (db-get-visitor-data ch-visitor))
 
 (defn db-delete-agent [ch-agent] (swap! map-agents dissoc ch-agent))
 (defn db-delete-visitor [ch-visitor] (swap! map-visitors dissoc ch-visitor))
-(defn db-delete-client [ch-client] (swap! map-clients dissoc ch-agent))
+(defn db-delete-client [ch-client] (swap! map-clients dissoc ch-client))
 (defn db-delete-agents-visitor [ch-agent ch-visitor]
-  (if ch-agent (swap! map-agents update-in [ch-agent] dissoc client)))
+  (if ch-agent (swap! map-agents update-in [ch-agent] dissoc ch-visitor)))
+
+(defn db-get-agent-with-any-chnl [ch-client]
+  (let [ch-agent1 (@map-visitors ch-client)              ;; Client is visitor, lookup agent
+        ch-agent2 (if (agent-in-db ch-client) ch-client nil)] ;; Client is agent or not
+    (or ch-agent1 ch-agent2)))
 
 ;; Sits on functions from above
-(defn add-agent [req channel]
-  (do (db-add-client req channel)
-      (db-add-agent channel {})))
+(defn add-agent [ch-agent user-data]
+  (do (db-add-client ch-agent user-data)
+      (db-add-agent ch-agent {})))
 
-(defn add-visitor [req channel]
-  (do (add-chnl-to-map channel)
-      (db-add-client req channel)
-      (db-add-visitor channel nil)))
+(defn add-visitor [ch-visitor user-data]
+  (do (add-chnl-to-map ch-visitor)
+      (db-add-client ch-visitor user-data)
+      (db-add-visitor ch-visitor nil)))
 
 (defn delete-agent [ch-agent]
   (let [ch-visitors (db-get-agent-visitors ch-agent)]
@@ -83,14 +80,22 @@
 
 (defn delete-visitor [ch-visitor]
   (do (del-chnl-from-map ch-visitor)
-      (db-delete-agents-visitor (get-agent-with-any-chnl ch-visitor) ch-visitor)
+      (db-delete-agents-visitor (db-get-agent-with-any-chnl ch-visitor) ch-visitor)
       (db-delete-client ch-visitor)       ;; Cleanup: remove agent from map-clients
       (db-delete-visitor ch-visitor)))
 
+(def db-all-visitors @map-visitors)
+(defn db-set-agents-chat-visitor [ch-agent ch-visitor]
+  (swap! map-agents assoc-in [ch-agent "sel-vis"] ch-visitor))
 
+(defn db-get-agents-chat-visitor [ch-agent]
+  (get-in @map-agents [ch-agent "sel-vis"]))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Debug lines
-(defn print-datastructs [] (println "\nagents" @map-agents
-                                    "\nvisitors" @map-visitors
-                                    "\nclients" @map-clients
-                                    "\nchannel-ip-map" @channel-ip-map))
+(defn print-datastructs [] (doseq [[k v] {"agents" @map-agents
+                                          "visitors" @map-visitors
+                                          "clients" @map-clients
+                                          "channel-ip-map" @channel-ip-map}]
+                                  (println k)
+                                  (doseq [[k2 v2] v]
+                                    (println k2 v2))))
